@@ -1,0 +1,31 @@
+{
+  "title": "Power Monitor",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Power Monitor",
+        "description": "On your ESP enable the Home Assistant integration, open Power Monitor connection and copy the 2-minute code. Paste the entire code here. HA will automatically create current-reading entities and download history. No MQTT, IP address or ESP password is required.",
+        "data": {
+          "code": "Code from ESP",
+          "name": "Device name"
+        }
+      },
+      "reconfigure": {
+        "title": "Connect Power Monitor",
+        "description": "On your ESP enable the Home Assistant integration, open Power Monitor connection and copy the 2-minute code. Paste the entire code here. HA will automatically create current-reading entities and download history. No MQTT, IP address or ESP password is required.",
+        "data": {
+          "code": "Code from ESP",
+          "name": "Device name"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not confirm the connection. Check that HA and ESP are on the same network and generate a new code. Existing history is preserved."
+    },
+    "abort": {
+      "already_configured": "This Power Monitor is already connected.",
+      "device_limit": "A maximum of 8 devices is supported.",
+      "wrong_device": "This code belongs to another device."
+    }
+  }
+}
