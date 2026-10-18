@@ -10,8 +10,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
            ("grid_present","Сеть присутствует","power"),("bms1_available","Связь с BMS 1","connectivity"),
            ("bms2_available","Связь с BMS 2","connectivity"),("balancing","Балансировка батареи",None)]
     items += [(f"relay_{i}_state",f"Реле {i}","power") for i in range(1,5)]
-    items += [(f"smart_plug_{i}_{key}",f"Розетка {i} · {name}",kind) for i in range(1,5)
-              for key,name,kind in (("connection","Связь","connectivity"),("relay","Реле","power"))]
+    items += [("bms1_balancing","BMS 1 · Балансировка",None),("bms2_balancing","BMS 2 · Балансировка",None)]
     async_add_entities([PowerMonitorBinary(coordinator,entry,*item) for item in items])
 
 

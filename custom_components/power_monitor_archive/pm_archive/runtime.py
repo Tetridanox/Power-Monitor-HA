@@ -13,7 +13,8 @@ from .sync import Source, Synchronizer
 def power_summary(rows):
     """Fixed-memory statistics over source records, before graph decimation."""
     channels = {key: {"sum": 0, "count": 0, "max": None, "min": None}
-                for key in ("pvPower", "gridPower", "loadPower", "batteryChargePower", "batteryDischargePower")}
+                for key in ("pvPower", "gridPower", "loadPower", "batteryChargePower", "batteryDischargePower",
+                            "gridVoltage", "outputVoltage", "batteryVoltage", "pvVoltage", "inverterTemperature", "soc")}
     previous = None
     first = last = None
     gaps, gap_count = [], 0
@@ -26,11 +27,8 @@ def power_summary(rows):
             if len(gaps) < 64:
                 gaps.append([previous + 60, timestamp])
         previous = timestamp
-        for i, key in enumerate(channels):
-            valid = fields[16] & (2 if key.startswith("battery") else 1)
-            if not valid:
-                continue
-            value = fields[3 + i]
+        for key, value in minute_measurements(fields).items():
+            if value is None: continue
             item = channels[key]
             item["sum"] += value; item["count"] += 1
             item["max"] = value if item["max"] is None else max(item["max"], value)
@@ -42,6 +40,20 @@ def power_summary(rows):
         del item["sum"]
     return {"channels": channels, "first": first, "last": last, "gaps": gaps,
             "gapCount": gap_count, "averagePolicy": "valid_source_samples"}
+
+
+def minute_measurements(fields):
+    """Only recorded fields with their source validity and missing sentinels."""
+    inv, battery = bool(fields[16] & 1), bool(fields[16] & 2)
+    values = {key: fields[3+i] if (battery if i >= 3 else inv) else None
+              for i,key in enumerate(("pvPower","gridPower","loadPower","batteryChargePower","batteryDischargePower"))}
+    values.update(gridVoltage=fields[9]/10 if inv else None,
+                  outputVoltage=fields[10]/10 if inv else None,
+                  batteryVoltage=(fields[8] | fields[17]<<16)/1000 if battery else None,
+                  pvVoltage=fields[18]/10 if inv and fields[18]!=65535 else None,
+                  inverterTemperature=fields[14] if inv and fields[14]!=-128 else None,
+                  soc=fields[15] if battery and fields[15]<=100 else None)
+    return values
 
 
 class Application:
@@ -217,7 +229,7 @@ class Application:
                     "loadPower": fields[5], "batteryChargePower": fields[6], "batteryDischargePower": fields[7],
                     "battMv": fields[8] | fields[17] << 16, "tInv": fields[14], "soc": fields[15],
                     "available": bool(fields[16] & 1), "batteryAvailable": bool(fields[16] & 2),
-                    "pvDv": fields[18], "gapBefore": bool(gap)})
+                    "pvDv": fields[18], "gapBefore": bool(gap), **minute_measurements(fields)})
             conflicts = connection.execute("""SELECT COUNT(*) FROM (
                 SELECT record_id FROM variants WHERE device=? AND generation=? AND kind='minute'
                 GROUP BY record_id HAVING COUNT(*)>1)""", (device, paired["generation"])).fetchone()[0]

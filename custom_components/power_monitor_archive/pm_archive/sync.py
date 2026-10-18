@@ -40,7 +40,7 @@ class Source:
         self.address, self._token = address, token
 
     def request(self, headers=None, *, method="GET", body=None, accepted=(200,), maximum=2456):
-        if maximum not in (2456, 4096):
+        if maximum not in (2456, 8192):
             raise ArchiveError("invalid source body bound")
         connection = http.client.HTTPConnection(self.address, 80, timeout=8)
         try:
@@ -79,11 +79,11 @@ class Source:
         if manifest.get("liveRead") is not True:
             raise ArchiveError("fresh pairing is required for current readings")
         raw, headers = self.request({"X-Archive-Kind": "live", "X-Archive-Epoch": manifest["bootEpoch"],
-            "X-Archive-Generation": manifest["generation"]}, maximum=4096)
+            "X-Archive-Generation": manifest["generation"]}, maximum=8192)
         if headers.get("x-archive-epoch") != manifest["bootEpoch"] or headers.get("x-archive-generation") != manifest["generation"]:
             raise ArchiveError("source changed while reading current values")
         data = json.loads(raw, parse_constant=lambda _: None)
-        if not isinstance(data, dict) or len(data) > 180 or not isinstance(data.get("uptime"), (int, float)):
+        if not isinstance(data, dict) or len(data) > 384 or not isinstance(data.get("uptime"), (int, float)):
             raise ArchiveError("invalid current readings")
         return data
 

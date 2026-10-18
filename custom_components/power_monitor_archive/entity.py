@@ -23,4 +23,5 @@ class PowerMonitorEntity(CoordinatorEntity):
 
     @property
     def value(self):
-        return (self.coordinator.data or {}).get("values", {}).get(SOURCE_KEYS.get(self.key,self.key))
+        value=(self.coordinator.data or {}).get("values", {}).get(SOURCE_KEYS.get(self.key,self.key))
+        return None if self.key=="operating_mode" and value not in ("line","battery") else value

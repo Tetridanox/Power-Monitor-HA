@@ -10,6 +10,7 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN, PANEL, VERSION
 from .pm_archive.runtime import Application
@@ -56,6 +57,11 @@ async def async_setup(hass, config):
 
 
 async def async_setup_entry(hass, entry):
+    registry=er.async_get(hass)
+    prefix=entry.data["deviceId"]+"_smart_plug_"
+    for entity in er.async_entries_for_config_entry(registry,entry.entry_id):
+        if entity.platform==DOMAIN and entity.unique_id.startswith(prefix):
+            registry.async_remove(entity.entity_id)
     state = hass.data[DOMAIN]
     app = state["app"]
     with app.lock:

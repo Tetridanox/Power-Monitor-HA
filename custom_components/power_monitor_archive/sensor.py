@@ -23,17 +23,26 @@ def definitions():
     add("cycle_count","Циклы батареи",None,None)
     add("wifi_rssi","Уровень Wi-Fi","dBm","signal_strength")
     add("uptime","Время работы","s","duration")
+    for key,name,unit,kind in (("bms1_cell_delta","BMS 1 · Разница ячеек","V","voltage"),
+            ("cell_min_voltage","BMS 1 · Минимальное напряжение ячейки","V","voltage"),
+            ("cell_max_voltage","BMS 1 · Максимальное напряжение ячейки","V","voltage"),
+            ("bms_balance_current","BMS 1 · Ток балансировки","A","current"),
+            ("bms2_remaining_capacity","BMS 2 · Оставшаяся ёмкость","Ah",None),
+            ("bms2_cell_min_voltage","BMS 2 · Минимальное напряжение ячейки","V","voltage"),
+            ("bms2_cell_max_voltage","BMS 2 · Максимальное напряжение ячейки","V","voltage"),
+            ("bms2_cycle_count","BMS 2 · Циклы батареи",None,None),
+            ("bms2_soh","BMS 2 · Состояние батареи","%",None),
+            ("bms2_balance_current","BMS 2 · Ток балансировки","A","current")):
+        add(key,name,unit,kind)
+    add("operating_mode","Режим инвертора",None,None)
     for slot in (1,2):
         prefix="" if slot==1 else "bms2_"
-        for cell in range(1,9):
+        for cell in range(1,33):
             add(prefix+f"cell_voltage_{cell}",f"BMS {slot} · Ячейка {cell}","V","voltage")
             add(prefix+f"cell_resistance_{cell}",f"BMS {slot} · Сопротивление ячейки {cell}","mΩ",None)
     for key,name,unit,kind in (("soc","Заряд","%",None),("voltage","Напряжение","V","voltage"),("current","Ток","A","current"),("power","Мощность","W","power"),
             ("temperature_1","Температура 1","°C","temperature"),("temperature_2","Температура 2","°C","temperature"),("mosfet_temperature","Температура MOSFET","°C","temperature"),("cell_delta","Разница ячеек","V","voltage")):
         add("bms2_"+key,"BMS 2 · "+name,unit,kind)
-    for slot in range(1,5):
-        for key,name,unit,kind in (("voltage","Напряжение","V","voltage"),("current","Ток","A","current"),("power","Мощность","W","power"),("energy","Энергия","kWh","energy")):
-            add(f"smart_plug_{slot}_"+key,f"Розетка {slot} · "+name,unit,kind)
     return items
 
 
@@ -53,4 +62,5 @@ class PowerMonitorSensor(PowerMonitorEntity, SensorEntity):
     @property
     def native_value(self):
         value=self.value
+        if self.key=="operating_mode":return value if value in ("line","battery") else None
         return value if isinstance(value,(int,float)) and not isinstance(value,bool) else None
