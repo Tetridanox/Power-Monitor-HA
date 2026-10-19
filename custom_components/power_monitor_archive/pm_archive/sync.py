@@ -5,6 +5,7 @@ import json
 import struct
 import time
 import sqlite3
+from urllib.parse import urlsplit
 
 from .store import ArchiveError, ArchiveStore, Page, _fnv, _hex
 
@@ -38,16 +39,20 @@ class Source:
         if not _hex(token, 64):
             raise ArchiveError("invalid archive credential")
         self.address, self._token = address, token
+        self.request_count = 0
+        self.response_bytes = 0
 
     def request(self, headers=None, *, method="GET", body=None, accepted=(200,), maximum=2456):
         if maximum not in (2456, 8192):
             raise ArchiveError("invalid source body bound")
         connection = http.client.HTTPConnection(self.address, 80, timeout=8)
+        self.request_count += 1
         try:
             connection.request(method, "/api/archive", body=body, headers={"Authorization": "Bearer " + self._token,
                 "Connection": "close", **(headers or {})})
             response = connection.getresponse()
             raw = response.read(maximum + 1)
+            self.response_bytes += len(raw)
             if response.status not in accepted:
                 retry = response.getheader("Retry-After", "2")
                 raise SourceError(response.status, min(300, max(2, int(retry))) if retry.isdecimal() else 2)
@@ -67,6 +72,27 @@ class Source:
                 not _hex(result.get("bootEpoch"), 16) or result.get("enabled") is not True or result.get("ready") is not True):
             raise ArchiveError("incompatible source manifest")
         return result
+
+    def set_interface(self, manifest, url):
+        if manifest.get("interfaceControl") is not True:
+            raise ArchiveError("fresh pairing is required for interface switching")
+        if not isinstance(url, str) or len(url) > 192:
+            raise ArchiveError("invalid panel URL")
+        if url:
+            target = urlsplit(url)
+            if (target.scheme not in ("http", "https") or not target.hostname or target.username or target.password or
+                    target.path != "/power-monitor" or target.query != "device=" + manifest["deviceId"] or target.fragment):
+                raise ArchiveError("invalid panel URL")
+        try:
+            self.request({"X-Archive-Command": "interface", "Content-Type": "application/json"},
+                         method="POST", body=json.dumps({"revision": manifest["revision"], "url": url}).encode())
+        except (OSError, http.client.HTTPException):
+            pass  # Ambiguous write: resolve with readback, never repeat POST.
+        current = self.manifest()
+        if (current["deviceId"] != manifest["deviceId"] or current["generation"] != manifest["generation"] or
+                current.get("interfaceUrl") != url):
+            raise ArchiveError("interface save was not confirmed")
+        return {"interfaceUrl": url, "saved": True}
 
     def page(self, manifest, kind, before="latest"):
         raw, headers = self.request({"X-Archive-Kind": kind, "X-Archive-Before": before,

@@ -1,0 +1,2574 @@
+{
+  "title": "Power Monitor",
+  "button_card_templates": {
+    "metric": {
+      "show_icon": false,
+      "show_name": false,
+      "show_state": false,
+      "triggers_update": "all",
+      "tap_action": {
+        "action": "more-info"
+      },
+      "variables": {
+        "accent": "#42a5f5",
+        "max_value": 100,
+        "subtext": ""
+      },
+      "custom_fields": {
+        "content": "[[[\n  const source = entity;\n  const stateVal = source?.state;\n  const rawValue = Number.parseFloat(stateVal);\n  const unit = source?.attributes?.unit_of_measurement;\n  const value = unit === '°F' ? (rawValue - 32) * 5 / 9 : rawValue;\n  const known = Number.isFinite(value);\n  const maximum = Number(variables.max_value) || 100;\n  const width = known ? Math.max(0, Math.min(100, Math.abs(value) / maximum * 100)) : 0;\n  const accent = variables.accent || '#42a5f5';\n  const icon = this._config.icon || source?.attributes?.icon || 'mdi:flash';\n  const name = this._config.name || source?.attributes?.friendly_name || '';\n  let formatted = '—';\n  if (source && known) {\n    if (hass.formatEntityState) {\n      formatted = hass.formatEntityState(source);\n    } else {\n      formatted = `${source.state} ${source.attributes?.unit_of_measurement ?? ''}`;\n    }\n  } else if (source?.state && !['unknown', 'unavailable', 'null'].includes(source.state)) {\n    formatted = `${source.state} ${source.attributes?.unit_of_measurement ?? ''}`;\n  }\n  if (known && unit === 'V') formatted = `${new Intl.NumberFormat('ru', {maximumFractionDigits:3}).format(value)} V`;\n  if (known && (unit === '°F' || unit === '°C')) formatted = `${new Intl.NumberFormat('ru', {maximumFractionDigits:1}).format(value)} °C`;\n  const sub = variables.subtext ? `<div style=\"color:rgba(255,255,255,.52);font-size:11.5px;line-height:1.1;margin-top:2px\">${variables.subtext}</div>` : '';\n  return `\n    <div style=\"display:grid;grid-template-columns:minmax(0,1fr) 50px;grid-template-rows:auto 1fr auto;column-gap:12px;row-gap:7px;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"grid-column:1;grid-row:1;color:rgba(255,255,255,.64);font-size:13px;font-weight:500;line-height:1.2;white-space:normal;overflow-wrap:anywhere\">${name}</div>\n      <div style=\"grid-column:1;grid-row:2;align-self:center\">\n        <div style=\"color:#f7f7f7;font-size:clamp(21px,1.55vw,29px);font-weight:400;line-height:1;letter-spacing:-.6px;white-space:nowrap\">${formatted}</div>\n        ${sub}\n      </div>\n      <div style=\"grid-column:2;grid-row:1/3;align-self:center;justify-self:end;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.06);box-shadow:0 10px 22px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.08)\"><ha-icon icon=\"${icon}\" style=\"width:27px;color:${accent}\"></ha-icon></div>\n      <div style=\"grid-column:1/3;grid-row:3;height:9px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden\"><div style=\"width:${width}%;height:100%;border-radius:99px;background:${accent};box-shadow:0 0 16px ${accent};transition:width .7s ease\"></div></div>\n    </div>`;\n]]]\n"
+      },
+      "styles": {
+        "card": [
+          {
+            "height": "126px"
+          },
+          {
+            "padding": "16px 17px"
+          },
+          {
+            "border-radius": "28px"
+          },
+          {
+            "border": "1px solid rgba(255,255,255,0.055)"
+          },
+          {
+            "background": "linear-gradient(145deg,rgba(45,45,45,0.98),rgba(27,27,27,0.98))"
+          },
+          {
+            "box-shadow": "0 18px 38px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.055)"
+          },
+          {
+            "overflow": "hidden"
+          }
+        ],
+        "grid": [
+          {
+            "grid-template-areas": "\"content\""
+          },
+          {
+            "grid-template-columns": "minmax(0,1fr)"
+          },
+          {
+            "grid-template-rows": "minmax(0,1fr)"
+          }
+        ],
+        "custom_fields": {
+          "content": [
+            {
+              "grid-area": "content"
+            },
+            {
+              "width": "100%"
+            },
+            {
+              "height": "100%"
+            },
+            {
+              "min-width": 0
+            }
+          ]
+        }
+      }
+    },
+    "battery_soc": {
+      "show_icon": false,
+      "show_name": false,
+      "show_state": false,
+      "tap_action": {
+        "action": "more-info"
+      },
+      "variables": {
+        "accent": "#55d6a9",
+        "max_value": 100
+      },
+      "custom_fields": {
+        "content": "[[[\n  const stateVal = entity ? entity.state : undefined;\n  const value = Number.parseFloat(stateVal);\n  const known = Number.isFinite(value);\n  const maximum = Number(variables.max_value) || 100;\n  const width = known ? Math.max(0, Math.min(100, Math.abs(value) / maximum * 100)) : 0;\n  const accent = variables.accent || '#55d6a9';\n  const icon = this._config.icon || entity?.attributes?.icon || 'mdi:battery-high';\n  const name = this._config.name || entity?.attributes?.friendly_name || 'Заряд АКБ (SOC)';\n  const formatted = known ? `${value.toFixed(0)} %` : '—';\n  \n  const pwrState = hass.states['__PM_battery_power__'];\n  const capState = hass.states['__PM_remaining_capacity__'];\n  const voltState = hass.states['__PM_battery_voltage__'];\n  const pwr = pwrState ? Number.parseFloat(pwrState.state) : 0;\n  const cap = capState ? Number.parseFloat(capState.state) : 0;\n  const volt = voltState ? Number.parseFloat(voltState.state) : 51.2;\n  \n  let timeSub = '';\n  if (known && Number.isFinite(pwr) && Number.isFinite(cap) && cap > 0) {\n    if (pwr < -25) {\n      const dischargeWatts = Math.abs(pwr);\n      const remainingWh = cap * (Number.isFinite(volt) && volt > 0 ? volt : 51.2);\n      const hours = remainingWh / dischargeWatts;\n      if (hours > 0 && hours < 200) {\n        const h = Math.floor(hours);\n        const m = Math.round((hours - h) * 60);\n        timeSub = `~${h}ч ${m}мин до разряда`;\n      }\n    } else if (pwr > 25) {\n      const socVal = value > 0 ? value : 50;\n      const neededAh = cap * (100 - socVal) / Math.max(1, socVal);\n      const neededWh = neededAh * (Number.isFinite(volt) && volt > 0 ? volt : 51.2);\n      const hours = neededWh / pwr;\n      if (hours > 0 && hours < 100) {\n        const h = Math.floor(hours);\n        const m = Math.round((hours - h) * 60);\n        timeSub = `~${h}ч ${m}мин до 100%`;\n      }\n    } else {\n      timeSub = 'Буферный режим';\n    }\n  }\n  return `\n    <div style=\"display:grid;grid-template-columns:minmax(0,1fr) 50px;grid-template-rows:auto 1fr auto;column-gap:12px;row-gap:7px;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"grid-column:1;grid-row:1;color:rgba(255,255,255,.64);font-size:13px;font-weight:500;line-height:1.2;white-space:normal;overflow-wrap:anywhere\">${name}</div>\n      <div style=\"grid-column:1;grid-row:2;align-self:center\">\n        <div style=\"color:#f7f7f7;font-size:clamp(21px,1.55vw,29px);font-weight:400;line-height:1;letter-spacing:-.6px;white-space:nowrap\">${formatted}</div>\n        ${timeSub ? `<div style=\"color:${accent};font-size:11.5px;font-weight:500;line-height:1.1;margin-top:3px\">${timeSub}</div>` : ''}\n      </div>\n      <div style=\"grid-column:2;grid-row:1/3;align-self:center;justify-self:end;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.06);box-shadow:0 10px 22px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.08)\"><ha-icon icon=\"${icon}\" style=\"width:27px;color:${accent}\"></ha-icon></div>\n      <div style=\"grid-column:1/3;grid-row:3;height:9px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden\"><div style=\"width:${width}%;height:100%;border-radius:99px;background:${accent};box-shadow:0 0 16px ${accent};transition:width .7s ease\"></div></div>\n    </div>`;\n]]]\n"
+      },
+      "styles": {
+        "card": [
+          {
+            "height": "126px"
+          },
+          {
+            "padding": "16px 17px"
+          },
+          {
+            "border-radius": "28px"
+          },
+          {
+            "border": "1px solid rgba(255,255,255,0.055)"
+          },
+          {
+            "background": "linear-gradient(145deg,rgba(45,45,45,0.98),rgba(27,27,27,0.98))"
+          },
+          {
+            "box-shadow": "0 18px 38px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.055)"
+          },
+          {
+            "overflow": "hidden"
+          }
+        ],
+        "grid": [
+          {
+            "grid-template-areas": "\"content\""
+          },
+          {
+            "grid-template-columns": "minmax(0,1fr)"
+          },
+          {
+            "grid-template-rows": "minmax(0,1fr)"
+          }
+        ],
+        "custom_fields": {
+          "content": [
+            {
+              "grid-area": "content"
+            },
+            {
+              "width": "100%"
+            },
+            {
+              "height": "100%"
+            },
+            {
+              "min-width": 0
+            }
+          ]
+        }
+      }
+    },
+    "status": {
+      "show_icon": false,
+      "show_name": false,
+      "show_state": false,
+      "tap_action": {
+        "action": "more-info"
+      },
+      "variables": {
+        "accent": "#42a5f5"
+      },
+      "custom_fields": {
+        "content": "[[[\n  const on = entity?.state === 'on';\n  const accent = entity?.entity_id?.startsWith('binary_sensor.')\n    ? (on ? '#55d6a9' : '#ef6a73')\n    : (variables.accent || '#42a5f5');\n  const icon = this._config.icon || entity?.attributes?.icon || 'mdi:information-outline';\n  const name = this._config.name || entity?.attributes?.friendly_name || '';\n  let formatted = '—';\n  if (entity) {\n    if (hass.formatEntityState) {\n      formatted = hass.formatEntityState(entity);\n    } else {\n      formatted = entity.state ?? '—';\n    }\n  }\n  return `\n    <div style=\"display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-rows:1fr 1fr;column-gap:12px;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"grid-column:1;grid-row:1/3;align-self:center;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.06);box-shadow:inset 0 1px 0 rgba(255,255,255,.07)\"><ha-icon icon=\"${icon}\" style=\"width:25px;color:${accent}\"></ha-icon></div>\n      <div style=\"grid-column:2;grid-row:1;align-self:end;color:rgba(255,255,255,.62);font-size:12px;line-height:1.15;white-space:normal;overflow-wrap:anywhere\">${name}</div>\n      <div style=\"grid-column:2;grid-row:2;align-self:start;color:#f6f6f6;font-size:15px;font-weight:600;line-height:1.2;white-space:normal;overflow-wrap:anywhere\">${formatted}</div>\n    </div>`;\n]]]\n"
+      },
+      "styles": {
+        "card": [
+          {
+            "height": "92px"
+          },
+          {
+            "padding": "15px 17px"
+          },
+          {
+            "border-radius": "25px"
+          },
+          {
+            "border": "1px solid rgba(255,255,255,0.055)"
+          },
+          {
+            "background": "linear-gradient(145deg,rgba(43,43,43,0.98),rgba(27,27,27,0.98))"
+          },
+          {
+            "box-shadow": "0 14px 30px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.05)"
+          }
+        ],
+        "grid": [
+          {
+            "grid-template-areas": "\"content\""
+          },
+          {
+            "grid-template-columns": "minmax(0,1fr)"
+          },
+          {
+            "grid-template-rows": "minmax(0,1fr)"
+          }
+        ],
+        "custom_fields": {
+          "content": [
+            {
+              "grid-area": "content"
+            },
+            {
+              "width": "100%"
+            },
+            {
+              "height": "100%"
+            },
+            {
+              "min-width": 0
+            }
+          ]
+        }
+      }
+    },
+    "cell": {
+      "show_icon": false,
+      "show_name": false,
+      "show_state": false,
+      "tap_action": {
+        "action": "more-info"
+      },
+      "variables": {
+        "index": 1
+      },
+      "custom_fields": {
+        "content": "[[[\n  const idx=Number(variables.index)||1;\n  const voltagePattern='', resistancePattern='';\n  const cellState=(field,index)=>hass.states[(field==='voltage'?variables.cell_entities:variables.resistance_entities)?.[index-1]];\n  const state = entity?.state;\n  const value = Number.parseFloat(state);\n  const known = Number.isFinite(value);\n  let cells = [];\n  for (let i = 1; i <= 32; i++) {\n    const s = cellState('voltage', i, voltagePattern);\n    const v = s ? Number.parseFloat(s.state) : NaN;\n    if (Number.isFinite(v)) cells.push(v);\n  }\n  const min = cells.length ? Math.min(...cells) : NaN;\n  const max = cells.length ? Math.max(...cells) : NaN;\n  const avg = cells.length ? cells.reduce((a, b) => a + b, 0) / cells.length : NaN;\n  const spread = Number.isFinite(min) && Number.isFinite(max) ? max - min : 0;\n  let accent = '#55d6a9';\n  if (known && spread > 0.0005) {\n    if (Math.abs(value - max) < 0.000001) accent = '#ff7043';\n    else if (Math.abs(value - min) < 0.000001) accent = '#22d3ee';\n  }\n  const width = known && spread > 0.0005\n    ? Math.max(4, Math.min(100, (value - min) / spread * 100))\n    : (known ? 100 : 0);\n  const dev = known && Number.isFinite(avg) ? (value - avg) * 1000 : null;\n  const devText = dev === null ? '' : `${dev >= 0 ? '+' : '−'}${Math.abs(dev).toFixed(0)} mV к среднему`;\n  const formatted = known ? `${value.toFixed(3)} V` : '—';\n  const resState = cellState('resistance', idx, resistancePattern);\n  const resVal = resState ? Number.parseFloat(resState.state) : NaN;\n  const resText = Number.isFinite(resVal) ? `${resVal.toFixed(2)} mΩ` : '';\n  return `\n    <div style=\"display:grid;grid-template-rows:auto auto 1fr auto;row-gap:6px;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"color:rgba(255,255,255,.6);font-size:12.5px;font-weight:500;line-height:1.15\">Ячейка ${idx}</div>\n      <div style=\"color:#f7f7f7;font-size:clamp(20px,1.35vw,25px);font-weight:600;line-height:1;letter-spacing:-.4px;white-space:nowrap\">${formatted}</div>\n      <div style=\"display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0\">\n        <span style=\"color:rgba(255,255,255,.5);font-size:11.5px;line-height:1.1;white-space:nowrap\">${devText}</span>\n        ${resText ? `<span style=\"color:rgba(255,255,255,.45);font-size:11.5px;font-weight:500;white-space:nowrap;letter-spacing:.1px;margin-left:auto\">${resText}</span>` : ''}\n      </div>\n      <div style=\"height:7px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden\"><div style=\"width:${width}%;height:100%;border-radius:99px;background:${accent};box-shadow:0 0 12px ${accent};transition:width .7s ease\"></div></div>\n    </div>`;\n]]]\n"
+      },
+      "styles": {
+        "card": [
+          {
+            "height": "108px"
+          },
+          {
+            "padding": "14px 15px"
+          },
+          {
+            "border-radius": "25px"
+          },
+          {
+            "border": "1px solid rgba(255,255,255,0.055)"
+          },
+          {
+            "background": "linear-gradient(145deg,rgba(43,43,43,0.98),rgba(27,27,27,0.98))"
+          },
+          {
+            "box-shadow": "0 14px 30px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.05)"
+          },
+          {
+            "overflow": "hidden"
+          }
+        ],
+        "grid": [
+          {
+            "grid-template-areas": "\"content\""
+          },
+          {
+            "grid-template-columns": "minmax(0,1fr)"
+          },
+          {
+            "grid-template-rows": "minmax(0,1fr)"
+          }
+        ],
+        "custom_fields": {
+          "content": [
+            {
+              "grid-area": "content"
+            },
+            {
+              "width": "100%"
+            },
+            {
+              "height": "100%"
+            },
+            {
+              "min-width": 0
+            }
+          ]
+        }
+      }
+    },
+    "balance": {
+      "show_icon": false,
+      "show_name": false,
+      "show_state": false,
+      "triggers_update": "all",
+      "tap_action": {
+        "action": "more-info"
+      },
+      "variables": {
+        "bms_name": "BMS"
+      },
+      "extra_styles": "@keyframes balance_wave {\n  0% { background-position: 0% 50%; }\n  50% { background-position: 100% 50%; }\n  100% { background-position: 0% 50%; }\n}\n@keyframes balance_card_pulse {\n  0%, 100% {\n    border-color: rgba(85,214,169,0.3);\n    box-shadow: 0 14px 30px rgba(0,0,0,0.28), 0 0 16px rgba(85,214,169,0.12), inset 0 1px 0 rgba(255,255,255,0.08);\n  }\n  50% {\n    border-color: rgba(85,214,169,0.6);\n    box-shadow: 0 14px 30px rgba(0,0,0,0.28), 0 0 28px rgba(85,214,169,0.25), inset 0 1px 0 rgba(255,255,255,0.14);\n  }\n}\n",
+      "custom_fields": {
+        "content": "[[[\n  const valid=c=>['on','off'].includes(c?.state);\n  const source=entity;\n  const currentSource=hass.states[variables.current_entity];\n  const current = Number.parseFloat(currentSource?.state);\n  const binaryKnown = valid(source);\n  const currentKnown = Number.isFinite(current);\n  const on = binaryKnown ? source.state === 'on' : (currentKnown && Math.abs(current) >= 0.01);\n  const unknown = !binaryKnown && !currentKnown;\n  const accent = unknown ? 'rgba(255,255,255,.45)' : (on ? '#55d6a9' : '#7e57c2');\n  const bmsName = variables.bms_name || 'BMS';\n  const label = unknown ? `Нет данных · ${bmsName}` : (on ? `${bmsName}: балансировка активна` : `${bmsName}: балансировка не активна`);\n  const sub = unknown ? `Проверьте связь с ${bmsName}` : (on ? `${bmsName} выравнивает ячейки прямо сейчас` : 'Разброс ячеек в пределах нормы');\n  const icon = 'mdi:scale-balance';\n  const iconBg = on && !unknown ? 'rgba(85,214,169,.15)' : 'rgba(255,255,255,.06)';\n  const iconBorder = on && !unknown ? '1px solid rgba(85,214,169,.35)' : '1px solid rgba(255,255,255,.06)';\n  const pillBg = unknown ? 'rgba(255,255,255,.07)' : (on ? 'rgba(85,214,169,.16)' : 'rgba(126,87,194,.13)');\n  const pillBorder = on && !unknown ? '1px solid rgba(85,214,169,.35)' : '1px solid rgba(255,255,255,.06)';\n  return `\n    <div style=\"display:grid;grid-template-columns:44px minmax(0,1fr) auto;column-gap:13px;align-items:center;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:${iconBg};border:${iconBorder};box-shadow:inset 0 1px 0 rgba(255,255,255,.1);box-sizing:border-box\">\n        <ha-icon icon=\"${icon}\" style=\"width:23px;color:${accent};display:block\"></ha-icon>\n      </div>\n      <div style=\"min-width:0\">\n        <div style=\"color:#f2f2f2;font-size:15px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis\">${label}</div>\n        <div style=\"color:rgba(255,255,255,.52);font-size:12px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis\">${sub}</div>\n      </div>\n      <div style=\"justify-self:end;padding:5px 12px;border-radius:99px;background:${pillBg};border:${pillBorder};color:${accent};font-size:11.5px;font-weight:600;letter-spacing:.3px;white-space:nowrap;box-sizing:border-box\">${unknown ? '—' : (on ? 'ON' : 'OFF')}</div>\n    </div>`;\n]]]\n"
+      },
+      "styles": {
+        "card": [
+          {
+            "height": "74px"
+          },
+          {
+            "padding": "13px 17px"
+          },
+          {
+            "border-radius": "25px"
+          },
+          {
+            "border": "[[[\n  const on = entity?.state === 'on';\n  return on ? '1px solid rgba(85,214,169,0.32)' : '1px solid rgba(255,255,255,0.055)';\n]]]\n"
+          },
+          {
+            "background": "[[[\n  const on = entity?.state === 'on';\n  return on\n    ? 'linear-gradient(135deg, rgba(85,214,169,0.22) 0%, rgba(43,43,43,0.98) 45%, rgba(85,214,169,0.12) 75%, rgba(27,27,27,0.98) 100%)'\n    : 'linear-gradient(145deg, rgba(43,43,43,0.98), rgba(27,27,27,0.98))';\n]]]\n"
+          },
+          {
+            "background-size": "[[[\n  const on = entity?.state === 'on';\n  return on ? '200% 200%' : '100% 100%';\n]]]\n"
+          },
+          {
+            "animation": "[[[\n  const on = entity?.state === 'on';\n  return on ? 'balance_wave 6s ease infinite, balance_card_pulse 3s ease-in-out infinite' : 'none';\n]]]\n"
+          },
+          {
+            "overflow": "hidden"
+          },
+          {
+            "transition": "all .4s ease"
+          }
+        ],
+        "grid": [
+          {
+            "grid-template-areas": "\"content\""
+          },
+          {
+            "grid-template-columns": "minmax(0,1fr)"
+          },
+          {
+            "grid-template-rows": "minmax(0,1fr)"
+          }
+        ],
+        "custom_fields": {
+          "content": [
+            {
+              "grid-area": "content"
+            },
+            {
+              "width": "100%"
+            },
+            {
+              "height": "100%"
+            },
+            {
+              "min-width": 0
+            }
+          ]
+        }
+      }
+    }
+  },
+  "views": [
+    {
+      "title": "Обзор",
+      "path": "energy",
+      "icon": "mdi:home-lightning-bolt-outline",
+      "type": "masonry",
+      "badges": [
+        {
+          "type": "custom:mushroom-chips-card",
+          "alignment": "start",
+          "chips": [
+            {
+              "type": "template",
+              "entity": "__PM_grid_present__",
+              "icon": "mdi:transmission-tower",
+              "icon_color": "{% if is_state('__PM_grid_present__', 'on') %}green{% else %}red{% endif %}",
+              "content": "{% if is_state('__PM_grid_present__', 'on') %}Сеть: {{ states('__PM_grid_voltage__') | round(0) }} V{% else %}Нет сети{% endif %}",
+              "tap_action": {
+                "action": "more-info"
+              }
+            },
+            {
+              "type": "template",
+              "entity": "__PM_operating_mode__",
+              "icon": "mdi:cog-transfer-outline",
+              "icon_color": "purple",
+              "content": "Режим: {{ states('__PM_operating_mode__') | replace('battery', 'АКБ') | replace('line', 'Сеть') }}",
+              "tap_action": {
+                "action": "more-info"
+              }
+            },
+            {
+              "type": "template",
+              "entity": "__PM_wifi_rssi__",
+              "icon": "mdi:wifi",
+              "icon_color": "blue",
+              "content": "{% set s = states('__PM_wifi_rssi__') if states('__PM_wifi_rssi__') not in ['unknown', 'unavailable'] else (states('__PM_wifi_rssi__') if states('__PM_wifi_rssi__') not in ['unknown', 'unavailable'] else states('__PM_wifi_rssi__')) %} Wi-Fi: {{ s if s not in ['unknown', 'unavailable'] else '—' }} dBm",
+              "tap_action": {
+                "action": "more-info"
+              }
+            },
+            {
+              "type": "template",
+              "entity": "__PM_bms_available__",
+              "icon": "mdi:battery-heart-variant",
+              "icon_color": "{% if is_state('__PM_bms_available__', 'on') %}green{% else %}grey{% endif %}",
+              "content": "{% if is_state('__PM_bms_available__', 'on') %}BMS: Онлайн{% else %}BMS: Офлайн{% endif %}",
+              "tap_action": {
+                "action": "more-info"
+              }
+            },
+            {
+              "type": "template",
+              "entity": "__PM_balancing__",
+              "icon": "mdi:scale-balance",
+              "icon_color": "{% if is_state('__PM_balancing__', 'on') %}green{% else %}grey{% endif %}",
+              "content": "{% if is_state('__PM_balancing__', 'on') %}Баланс: ON{% else %}Баланс: OFF{% endif %}",
+              "tap_action": {
+                "action": "more-info"
+              }
+            }
+          ]
+        }
+      ],
+      "cards": [
+        {
+          "type": "vertical-stack",
+          "cards": [
+            {
+              "type": "custom:mushroom-title-card",
+              "title": "Потоки энергии"
+            },
+            {
+              "type": "custom:power-flow-card-plus",
+              "clickable_entities": true,
+              "display_zero_lines": {
+                "mode": "show"
+              },
+              "use_new_flow_rate_model": true,
+              "min_flow_rate": 5,
+              "max_flow_rate": 5,
+              "min_expected_power": 50,
+              "max_expected_power": 4500,
+              "base_decimals": 0,
+              "kilo_decimals": 2,
+              "kilo_threshold": 1000,
+              "entities": {
+                "grid": {
+                  "entity": "__PM_grid_power__",
+                  "name": "Сеть",
+                  "icon": "mdi:transmission-tower",
+                  "display_state": "one_way",
+                  "color_circle": true,
+                  "color_icon": true,
+                  "color_value": true,
+                  "display_zero_tolerance": 5
+                },
+                "solar": {
+                  "entity": "__PM_pv_power__",
+                  "name": "Солнце",
+                  "icon": "mdi:solar-panel-large",
+                  "color": "#ffb74d",
+                  "color_icon": true,
+                  "color_value": true,
+                  "display_zero": true,
+                  "display_zero_tolerance": 5
+                },
+                "battery": {
+                  "entity": "__PM_battery_power__",
+                  "state_of_charge": "__PM_battery_soc__",
+                  "name": "АКБ",
+                  "icon": "mdi:home-battery",
+                  "color_circle": "color_dynamically",
+                  "color_state_of_charge_value": "color_dynamically",
+                  "color_icon": true,
+                  "color_value": true,
+                  "invert_state": true,
+                  "display_zero_tolerance": 5
+                },
+                "home": {
+                  "entity": "__PM_load_power__",
+                  "name": "Нагрузка",
+                  "icon": "mdi:home-lightning-bolt",
+                  "override_state": true,
+                  "color_icon": "solar",
+                  "color_value": true
+                }
+              },
+              "card_mod": {
+                "style": "ha-card {\n  border-radius: 32px;\n  border: 1px solid rgba(255,255,255,.055);\n  background: linear-gradient(145deg,rgba(44,44,44,.98),rgba(25,25,25,.98));\n  box-shadow: 0 22px 48px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.06);\n  overflow: hidden;\n}\n"
+              }
+            },
+            {
+              "type": "custom:mushroom-title-card",
+              "title": "Состояние системы"
+            },
+            {
+              "type": "grid",
+              "columns": 2,
+              "square": false,
+              "cards": [
+                {
+                  "type": "custom:button-card",
+                  "template": "status",
+                  "entity": "__PM_inverter_available__",
+                  "name": "Инвертор",
+                  "icon": "mdi:solar-power-variant"
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "status",
+                  "entity": "__PM_bms_available__",
+                  "name": "BMS",
+                  "icon": "mdi:battery-heart-variant"
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "status",
+                  "entity": "__PM_grid_present__",
+                  "name": "Внешняя сеть",
+                  "icon": "mdi:transmission-tower"
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "status",
+                  "entity": "__PM_operating_mode__",
+                  "name": "Режим инвертора",
+                  "icon": "mdi:cog-transfer-outline",
+                  "variables": {
+                    "accent": "#a78bfa"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "vertical-stack",
+          "cards": [
+            {
+              "type": "custom:mushroom-title-card",
+              "title": "Энергия сегодня"
+            },
+            {
+              "type": "grid",
+              "columns": 2,
+              "square": false,
+              "cards": [
+                {
+                  "type": "custom:button-card",
+                  "template": "metric",
+                  "entity": "__PM_autonomy_today__",
+                  "name": "Автономность сегодня",
+                  "icon": "mdi:shield-sun",
+                  "variables": {
+                    "accent": "#55d6a9",
+                    "max_value": 100
+                  }
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "metric",
+                  "entity": "__PM_load_energy_today__",
+                  "name": "Энергия нагрузки",
+                  "icon": "mdi:home-lightning-bolt",
+                  "variables": {
+                    "accent": "#42a5f5",
+                    "max_value": 25
+                  }
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "metric",
+                  "entity": "__PM_grid_import_today__",
+                  "name": "Получено из сети",
+                  "icon": "mdi:transmission-tower-import",
+                  "variables": {
+                    "accent": "#ef6a73",
+                    "max_value": 25
+                  }
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "metric",
+                  "entity": "__PM_pv_energy_today__",
+                  "name": "Выработка PV",
+                  "icon": "mdi:solar-power",
+                  "variables": {
+                    "accent": "#ffb74d",
+                    "max_value": 25
+                  }
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "metric",
+                  "entity": "__PM_battery_charge_energy_today__",
+                  "name": "Заряд АКБ",
+                  "icon": "mdi:battery-arrow-up",
+                  "variables": {
+                    "accent": "#a78bfa",
+                    "max_value": 15
+                  }
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "metric",
+                  "entity": "__PM_battery_discharge_energy_today__",
+                  "name": "Разряд АКБ",
+                  "icon": "mdi:battery-arrow-down",
+                  "variables": {
+                    "accent": "#22d3ee",
+                    "max_value": 15
+                  }
+                }
+              ]
+            },
+            {
+              "type": "custom:mushroom-title-card",
+              "title": "Сеть и нагрузка"
+            },
+            {
+              "type": "grid",
+              "columns": 2,
+              "square": false,
+              "cards": [
+                {
+                  "type": "custom:button-card",
+                  "template": "metric",
+                  "entity": "__PM_grid_voltage__",
+                  "name": "Напряжение сети",
+                  "icon": "mdi:transmission-tower",
+                  "variables": {
+                    "accent": "#42a5f5",
+                    "max_value": 260
+                  }
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "metric",
+                  "entity": "__PM_load_power__",
+                  "name": "Мощность нагрузки",
+                  "icon": "mdi:home-lightning-bolt",
+                  "variables": {
+                    "accent": "#ffb74d",
+                    "max_value": 4500
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "vertical-stack",
+          "cards": [
+            {
+              "type": "custom:mushroom-title-card",
+              "title": "Банк аккумуляторов"
+            },
+            {
+              "type": "grid",
+              "columns": 2,
+              "square": false,
+              "cards": [
+                {
+                  "type": "custom:button-card",
+                  "template": "metric",
+                  "entity": "__PM_remaining_energy__",
+                  "name": "Ост. ёмкость",
+                  "icon": "mdi:battery-clock",
+                  "variables": {
+                    "accent": "#22d3ee",
+                    "max_value": "[[[ const value=Number(entity?.state),soc=Number(hass.states['__PM_battery_soc__']?.state); return Number.isFinite(value)&&Number.isFinite(soc)&&soc>0?Math.max(value*100/soc,0.01):1; ]]]"
+                  },
+                  "triggers_update": [
+                    "__PM_battery_soc__"
+                  ]
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "metric",
+                  "entity": "__PM_cell_delta__",
+                  "name": "Общий разброс ячеек",
+                  "icon": "mdi:vector-difference",
+                  "variables": {
+                    "accent": "#ab47bc",
+                    "max_value": 0.05
+                  }
+                }
+              ]
+            },
+            {
+              "type": "custom:button-card",
+              "template": "balance",
+              "entity": "__PM_balancing__",
+              "variables": {
+                "bms_name": "Банк",
+                "current_entity": "__PM_bms_balance_current__"
+              }
+            },
+            {
+              "type": "custom:mushroom-title-card",
+              "title": "Батарея и мощность"
+            },
+            {
+              "type": "grid",
+              "columns": 2,
+              "square": false,
+              "cards": [
+                {
+                  "type": "custom:button-card",
+                  "template": "battery_soc",
+                  "entity": "__PM_battery_soc__",
+                  "name": "Заряд АКБ (SOC)",
+                  "icon": "mdi:battery-high",
+                  "variables": {
+                    "accent": "#55d6a9",
+                    "max_value": 100
+                  }
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "metric",
+                  "entity": "__PM_battery_voltage__",
+                  "name": "Напряжение АКБ",
+                  "icon": "mdi:sine-wave",
+                  "variables": {
+                    "accent": "#22d3ee",
+                    "max_value": 60
+                  }
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "metric",
+                  "entity": "__PM_battery_power__",
+                  "name": "Мощность АКБ",
+                  "icon": "mdi:flash",
+                  "variables": {
+                    "accent": "#a78bfa",
+                    "max_value": 3500
+                  }
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "metric",
+                  "entity": "__PM_battery_current__",
+                  "name": "Ток АКБ",
+                  "icon": "mdi:current-dc",
+                  "variables": {
+                    "accent": "#ff7043",
+                    "max_value": 70
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Диагностика",
+      "path": "diagnostics",
+      "icon": "mdi:battery-heart-variant",
+      "type": "sections",
+      "max_columns": 2,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "vertical-stack",
+              "cards": [
+                {
+                  "type": "custom:mushroom-title-card",
+                  "title": "BMS 1"
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "status",
+                  "entity": "__PM_bms1_available__",
+                  "name": "BMS 1",
+                  "icon": "mdi:battery-heart-variant"
+                },
+                {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "condition": "state",
+                      "entity": "__PM_bms1_available__",
+                      "state": "on"
+                    }
+                  ],
+                  "card": {
+                    "type": "vertical-stack",
+                    "cards": [
+                      {
+                        "type": "grid",
+                        "columns": 2,
+                        "square": false,
+                        "cards": [
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_bms_soh__",
+                            "name": "Здоровье (SOH)",
+                            "icon": "mdi:heart-pulse",
+                            "variables": {
+                              "accent": "#55d6a9",
+                              "max_value": 100
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_cycle_count__",
+                            "name": "Циклы",
+                            "icon": "mdi:battery-sync",
+                            "variables": {
+                              "accent": "#ffb74d",
+                              "max_value": 6000
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_bms_balance_current__",
+                            "name": "Ток балансировки",
+                            "icon": "mdi:scale-balance",
+                            "variables": {
+                              "accent": "#7e57c2",
+                              "max_value": 2
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_bms1_cell_delta__",
+                            "name": "Разброс ячеек",
+                            "icon": "mdi:vector-difference",
+                            "variables": {
+                              "accent": "#ab47bc",
+                              "max_value": 0.05
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "type": "custom:button-card",
+                        "template": "balance",
+                        "entity": "__PM_bms1_balancing__",
+                        "variables": {
+                          "bms_name": "BMS 1",
+                          "current_entity": "__PM_bms_balance_current__"
+                        }
+                      },
+                      {
+                        "type": "custom:mushroom-title-card",
+                        "title": "Температуры и разброс ячеек",
+                        "subtitle": "Датчики BMS 1"
+                      },
+                      {
+                        "type": "grid",
+                        "columns": 2,
+                        "square": false,
+                        "cards": [
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_bms_temperature_1__",
+                            "name": "BMS датчик 1",
+                            "icon": "mdi:thermometer",
+                            "variables": {
+                              "accent": "#ff7043",
+                              "max_value": 80
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_bms_temperature_2__",
+                            "name": "BMS датчик 2",
+                            "icon": "mdi:thermometer",
+                            "variables": {
+                              "accent": "#ffb74d",
+                              "max_value": 80
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_mosfet_temperature__",
+                            "name": "Ключи MOSFET",
+                            "icon": "mdi:chip",
+                            "variables": {
+                              "accent": "#ef5350",
+                              "max_value": 90
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_cell_min_voltage__",
+                            "name": "Мин. ячейка",
+                            "icon": "mdi:arrow-collapse-down",
+                            "variables": {
+                              "accent": "#22d3ee",
+                              "max_value": 4
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "type": "custom:mushroom-title-card",
+                        "title": "Ячейки батареи",
+                        "subtitle": "Напряжение всех восьми ячеек и баланс"
+                      },
+                      {
+                        "type": "grid",
+                        "columns": 2,
+                        "square": false,
+                        "cards": [
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_cell_voltage_1__",
+                            "variables": {
+                              "index": 1,
+                              "cell_entities": [
+                                "__PM_cell_voltage_1__",
+                                "__PM_cell_voltage_2__",
+                                "__PM_cell_voltage_3__",
+                                "__PM_cell_voltage_4__",
+                                "__PM_cell_voltage_5__",
+                                "__PM_cell_voltage_6__",
+                                "__PM_cell_voltage_7__",
+                                "__PM_cell_voltage_8__",
+                                "__PM_cell_voltage_9__",
+                                "__PM_cell_voltage_10__",
+                                "__PM_cell_voltage_11__",
+                                "__PM_cell_voltage_12__",
+                                "__PM_cell_voltage_13__",
+                                "__PM_cell_voltage_14__",
+                                "__PM_cell_voltage_15__",
+                                "__PM_cell_voltage_16__",
+                                "__PM_cell_voltage_17__",
+                                "__PM_cell_voltage_18__",
+                                "__PM_cell_voltage_19__",
+                                "__PM_cell_voltage_20__",
+                                "__PM_cell_voltage_21__",
+                                "__PM_cell_voltage_22__",
+                                "__PM_cell_voltage_23__",
+                                "__PM_cell_voltage_24__",
+                                "__PM_cell_voltage_25__",
+                                "__PM_cell_voltage_26__",
+                                "__PM_cell_voltage_27__",
+                                "__PM_cell_voltage_28__",
+                                "__PM_cell_voltage_29__",
+                                "__PM_cell_voltage_30__",
+                                "__PM_cell_voltage_31__",
+                                "__PM_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_cell_resistance_1__",
+                                "__PM_cell_resistance_2__",
+                                "__PM_cell_resistance_3__",
+                                "__PM_cell_resistance_4__",
+                                "__PM_cell_resistance_5__",
+                                "__PM_cell_resistance_6__",
+                                "__PM_cell_resistance_7__",
+                                "__PM_cell_resistance_8__",
+                                "__PM_cell_resistance_9__",
+                                "__PM_cell_resistance_10__",
+                                "__PM_cell_resistance_11__",
+                                "__PM_cell_resistance_12__",
+                                "__PM_cell_resistance_13__",
+                                "__PM_cell_resistance_14__",
+                                "__PM_cell_resistance_15__",
+                                "__PM_cell_resistance_16__",
+                                "__PM_cell_resistance_17__",
+                                "__PM_cell_resistance_18__",
+                                "__PM_cell_resistance_19__",
+                                "__PM_cell_resistance_20__",
+                                "__PM_cell_resistance_21__",
+                                "__PM_cell_resistance_22__",
+                                "__PM_cell_resistance_23__",
+                                "__PM_cell_resistance_24__",
+                                "__PM_cell_resistance_25__",
+                                "__PM_cell_resistance_26__",
+                                "__PM_cell_resistance_27__",
+                                "__PM_cell_resistance_28__",
+                                "__PM_cell_resistance_29__",
+                                "__PM_cell_resistance_30__",
+                                "__PM_cell_resistance_31__",
+                                "__PM_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_cell_voltage_2__",
+                            "variables": {
+                              "index": 2,
+                              "cell_entities": [
+                                "__PM_cell_voltage_1__",
+                                "__PM_cell_voltage_2__",
+                                "__PM_cell_voltage_3__",
+                                "__PM_cell_voltage_4__",
+                                "__PM_cell_voltage_5__",
+                                "__PM_cell_voltage_6__",
+                                "__PM_cell_voltage_7__",
+                                "__PM_cell_voltage_8__",
+                                "__PM_cell_voltage_9__",
+                                "__PM_cell_voltage_10__",
+                                "__PM_cell_voltage_11__",
+                                "__PM_cell_voltage_12__",
+                                "__PM_cell_voltage_13__",
+                                "__PM_cell_voltage_14__",
+                                "__PM_cell_voltage_15__",
+                                "__PM_cell_voltage_16__",
+                                "__PM_cell_voltage_17__",
+                                "__PM_cell_voltage_18__",
+                                "__PM_cell_voltage_19__",
+                                "__PM_cell_voltage_20__",
+                                "__PM_cell_voltage_21__",
+                                "__PM_cell_voltage_22__",
+                                "__PM_cell_voltage_23__",
+                                "__PM_cell_voltage_24__",
+                                "__PM_cell_voltage_25__",
+                                "__PM_cell_voltage_26__",
+                                "__PM_cell_voltage_27__",
+                                "__PM_cell_voltage_28__",
+                                "__PM_cell_voltage_29__",
+                                "__PM_cell_voltage_30__",
+                                "__PM_cell_voltage_31__",
+                                "__PM_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_cell_resistance_1__",
+                                "__PM_cell_resistance_2__",
+                                "__PM_cell_resistance_3__",
+                                "__PM_cell_resistance_4__",
+                                "__PM_cell_resistance_5__",
+                                "__PM_cell_resistance_6__",
+                                "__PM_cell_resistance_7__",
+                                "__PM_cell_resistance_8__",
+                                "__PM_cell_resistance_9__",
+                                "__PM_cell_resistance_10__",
+                                "__PM_cell_resistance_11__",
+                                "__PM_cell_resistance_12__",
+                                "__PM_cell_resistance_13__",
+                                "__PM_cell_resistance_14__",
+                                "__PM_cell_resistance_15__",
+                                "__PM_cell_resistance_16__",
+                                "__PM_cell_resistance_17__",
+                                "__PM_cell_resistance_18__",
+                                "__PM_cell_resistance_19__",
+                                "__PM_cell_resistance_20__",
+                                "__PM_cell_resistance_21__",
+                                "__PM_cell_resistance_22__",
+                                "__PM_cell_resistance_23__",
+                                "__PM_cell_resistance_24__",
+                                "__PM_cell_resistance_25__",
+                                "__PM_cell_resistance_26__",
+                                "__PM_cell_resistance_27__",
+                                "__PM_cell_resistance_28__",
+                                "__PM_cell_resistance_29__",
+                                "__PM_cell_resistance_30__",
+                                "__PM_cell_resistance_31__",
+                                "__PM_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_cell_voltage_3__",
+                            "variables": {
+                              "index": 3,
+                              "cell_entities": [
+                                "__PM_cell_voltage_1__",
+                                "__PM_cell_voltage_2__",
+                                "__PM_cell_voltage_3__",
+                                "__PM_cell_voltage_4__",
+                                "__PM_cell_voltage_5__",
+                                "__PM_cell_voltage_6__",
+                                "__PM_cell_voltage_7__",
+                                "__PM_cell_voltage_8__",
+                                "__PM_cell_voltage_9__",
+                                "__PM_cell_voltage_10__",
+                                "__PM_cell_voltage_11__",
+                                "__PM_cell_voltage_12__",
+                                "__PM_cell_voltage_13__",
+                                "__PM_cell_voltage_14__",
+                                "__PM_cell_voltage_15__",
+                                "__PM_cell_voltage_16__",
+                                "__PM_cell_voltage_17__",
+                                "__PM_cell_voltage_18__",
+                                "__PM_cell_voltage_19__",
+                                "__PM_cell_voltage_20__",
+                                "__PM_cell_voltage_21__",
+                                "__PM_cell_voltage_22__",
+                                "__PM_cell_voltage_23__",
+                                "__PM_cell_voltage_24__",
+                                "__PM_cell_voltage_25__",
+                                "__PM_cell_voltage_26__",
+                                "__PM_cell_voltage_27__",
+                                "__PM_cell_voltage_28__",
+                                "__PM_cell_voltage_29__",
+                                "__PM_cell_voltage_30__",
+                                "__PM_cell_voltage_31__",
+                                "__PM_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_cell_resistance_1__",
+                                "__PM_cell_resistance_2__",
+                                "__PM_cell_resistance_3__",
+                                "__PM_cell_resistance_4__",
+                                "__PM_cell_resistance_5__",
+                                "__PM_cell_resistance_6__",
+                                "__PM_cell_resistance_7__",
+                                "__PM_cell_resistance_8__",
+                                "__PM_cell_resistance_9__",
+                                "__PM_cell_resistance_10__",
+                                "__PM_cell_resistance_11__",
+                                "__PM_cell_resistance_12__",
+                                "__PM_cell_resistance_13__",
+                                "__PM_cell_resistance_14__",
+                                "__PM_cell_resistance_15__",
+                                "__PM_cell_resistance_16__",
+                                "__PM_cell_resistance_17__",
+                                "__PM_cell_resistance_18__",
+                                "__PM_cell_resistance_19__",
+                                "__PM_cell_resistance_20__",
+                                "__PM_cell_resistance_21__",
+                                "__PM_cell_resistance_22__",
+                                "__PM_cell_resistance_23__",
+                                "__PM_cell_resistance_24__",
+                                "__PM_cell_resistance_25__",
+                                "__PM_cell_resistance_26__",
+                                "__PM_cell_resistance_27__",
+                                "__PM_cell_resistance_28__",
+                                "__PM_cell_resistance_29__",
+                                "__PM_cell_resistance_30__",
+                                "__PM_cell_resistance_31__",
+                                "__PM_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_cell_voltage_4__",
+                            "variables": {
+                              "index": 4,
+                              "cell_entities": [
+                                "__PM_cell_voltage_1__",
+                                "__PM_cell_voltage_2__",
+                                "__PM_cell_voltage_3__",
+                                "__PM_cell_voltage_4__",
+                                "__PM_cell_voltage_5__",
+                                "__PM_cell_voltage_6__",
+                                "__PM_cell_voltage_7__",
+                                "__PM_cell_voltage_8__",
+                                "__PM_cell_voltage_9__",
+                                "__PM_cell_voltage_10__",
+                                "__PM_cell_voltage_11__",
+                                "__PM_cell_voltage_12__",
+                                "__PM_cell_voltage_13__",
+                                "__PM_cell_voltage_14__",
+                                "__PM_cell_voltage_15__",
+                                "__PM_cell_voltage_16__",
+                                "__PM_cell_voltage_17__",
+                                "__PM_cell_voltage_18__",
+                                "__PM_cell_voltage_19__",
+                                "__PM_cell_voltage_20__",
+                                "__PM_cell_voltage_21__",
+                                "__PM_cell_voltage_22__",
+                                "__PM_cell_voltage_23__",
+                                "__PM_cell_voltage_24__",
+                                "__PM_cell_voltage_25__",
+                                "__PM_cell_voltage_26__",
+                                "__PM_cell_voltage_27__",
+                                "__PM_cell_voltage_28__",
+                                "__PM_cell_voltage_29__",
+                                "__PM_cell_voltage_30__",
+                                "__PM_cell_voltage_31__",
+                                "__PM_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_cell_resistance_1__",
+                                "__PM_cell_resistance_2__",
+                                "__PM_cell_resistance_3__",
+                                "__PM_cell_resistance_4__",
+                                "__PM_cell_resistance_5__",
+                                "__PM_cell_resistance_6__",
+                                "__PM_cell_resistance_7__",
+                                "__PM_cell_resistance_8__",
+                                "__PM_cell_resistance_9__",
+                                "__PM_cell_resistance_10__",
+                                "__PM_cell_resistance_11__",
+                                "__PM_cell_resistance_12__",
+                                "__PM_cell_resistance_13__",
+                                "__PM_cell_resistance_14__",
+                                "__PM_cell_resistance_15__",
+                                "__PM_cell_resistance_16__",
+                                "__PM_cell_resistance_17__",
+                                "__PM_cell_resistance_18__",
+                                "__PM_cell_resistance_19__",
+                                "__PM_cell_resistance_20__",
+                                "__PM_cell_resistance_21__",
+                                "__PM_cell_resistance_22__",
+                                "__PM_cell_resistance_23__",
+                                "__PM_cell_resistance_24__",
+                                "__PM_cell_resistance_25__",
+                                "__PM_cell_resistance_26__",
+                                "__PM_cell_resistance_27__",
+                                "__PM_cell_resistance_28__",
+                                "__PM_cell_resistance_29__",
+                                "__PM_cell_resistance_30__",
+                                "__PM_cell_resistance_31__",
+                                "__PM_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_cell_voltage_5__",
+                            "variables": {
+                              "index": 5,
+                              "cell_entities": [
+                                "__PM_cell_voltage_1__",
+                                "__PM_cell_voltage_2__",
+                                "__PM_cell_voltage_3__",
+                                "__PM_cell_voltage_4__",
+                                "__PM_cell_voltage_5__",
+                                "__PM_cell_voltage_6__",
+                                "__PM_cell_voltage_7__",
+                                "__PM_cell_voltage_8__",
+                                "__PM_cell_voltage_9__",
+                                "__PM_cell_voltage_10__",
+                                "__PM_cell_voltage_11__",
+                                "__PM_cell_voltage_12__",
+                                "__PM_cell_voltage_13__",
+                                "__PM_cell_voltage_14__",
+                                "__PM_cell_voltage_15__",
+                                "__PM_cell_voltage_16__",
+                                "__PM_cell_voltage_17__",
+                                "__PM_cell_voltage_18__",
+                                "__PM_cell_voltage_19__",
+                                "__PM_cell_voltage_20__",
+                                "__PM_cell_voltage_21__",
+                                "__PM_cell_voltage_22__",
+                                "__PM_cell_voltage_23__",
+                                "__PM_cell_voltage_24__",
+                                "__PM_cell_voltage_25__",
+                                "__PM_cell_voltage_26__",
+                                "__PM_cell_voltage_27__",
+                                "__PM_cell_voltage_28__",
+                                "__PM_cell_voltage_29__",
+                                "__PM_cell_voltage_30__",
+                                "__PM_cell_voltage_31__",
+                                "__PM_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_cell_resistance_1__",
+                                "__PM_cell_resistance_2__",
+                                "__PM_cell_resistance_3__",
+                                "__PM_cell_resistance_4__",
+                                "__PM_cell_resistance_5__",
+                                "__PM_cell_resistance_6__",
+                                "__PM_cell_resistance_7__",
+                                "__PM_cell_resistance_8__",
+                                "__PM_cell_resistance_9__",
+                                "__PM_cell_resistance_10__",
+                                "__PM_cell_resistance_11__",
+                                "__PM_cell_resistance_12__",
+                                "__PM_cell_resistance_13__",
+                                "__PM_cell_resistance_14__",
+                                "__PM_cell_resistance_15__",
+                                "__PM_cell_resistance_16__",
+                                "__PM_cell_resistance_17__",
+                                "__PM_cell_resistance_18__",
+                                "__PM_cell_resistance_19__",
+                                "__PM_cell_resistance_20__",
+                                "__PM_cell_resistance_21__",
+                                "__PM_cell_resistance_22__",
+                                "__PM_cell_resistance_23__",
+                                "__PM_cell_resistance_24__",
+                                "__PM_cell_resistance_25__",
+                                "__PM_cell_resistance_26__",
+                                "__PM_cell_resistance_27__",
+                                "__PM_cell_resistance_28__",
+                                "__PM_cell_resistance_29__",
+                                "__PM_cell_resistance_30__",
+                                "__PM_cell_resistance_31__",
+                                "__PM_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_cell_voltage_6__",
+                            "variables": {
+                              "index": 6,
+                              "cell_entities": [
+                                "__PM_cell_voltage_1__",
+                                "__PM_cell_voltage_2__",
+                                "__PM_cell_voltage_3__",
+                                "__PM_cell_voltage_4__",
+                                "__PM_cell_voltage_5__",
+                                "__PM_cell_voltage_6__",
+                                "__PM_cell_voltage_7__",
+                                "__PM_cell_voltage_8__",
+                                "__PM_cell_voltage_9__",
+                                "__PM_cell_voltage_10__",
+                                "__PM_cell_voltage_11__",
+                                "__PM_cell_voltage_12__",
+                                "__PM_cell_voltage_13__",
+                                "__PM_cell_voltage_14__",
+                                "__PM_cell_voltage_15__",
+                                "__PM_cell_voltage_16__",
+                                "__PM_cell_voltage_17__",
+                                "__PM_cell_voltage_18__",
+                                "__PM_cell_voltage_19__",
+                                "__PM_cell_voltage_20__",
+                                "__PM_cell_voltage_21__",
+                                "__PM_cell_voltage_22__",
+                                "__PM_cell_voltage_23__",
+                                "__PM_cell_voltage_24__",
+                                "__PM_cell_voltage_25__",
+                                "__PM_cell_voltage_26__",
+                                "__PM_cell_voltage_27__",
+                                "__PM_cell_voltage_28__",
+                                "__PM_cell_voltage_29__",
+                                "__PM_cell_voltage_30__",
+                                "__PM_cell_voltage_31__",
+                                "__PM_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_cell_resistance_1__",
+                                "__PM_cell_resistance_2__",
+                                "__PM_cell_resistance_3__",
+                                "__PM_cell_resistance_4__",
+                                "__PM_cell_resistance_5__",
+                                "__PM_cell_resistance_6__",
+                                "__PM_cell_resistance_7__",
+                                "__PM_cell_resistance_8__",
+                                "__PM_cell_resistance_9__",
+                                "__PM_cell_resistance_10__",
+                                "__PM_cell_resistance_11__",
+                                "__PM_cell_resistance_12__",
+                                "__PM_cell_resistance_13__",
+                                "__PM_cell_resistance_14__",
+                                "__PM_cell_resistance_15__",
+                                "__PM_cell_resistance_16__",
+                                "__PM_cell_resistance_17__",
+                                "__PM_cell_resistance_18__",
+                                "__PM_cell_resistance_19__",
+                                "__PM_cell_resistance_20__",
+                                "__PM_cell_resistance_21__",
+                                "__PM_cell_resistance_22__",
+                                "__PM_cell_resistance_23__",
+                                "__PM_cell_resistance_24__",
+                                "__PM_cell_resistance_25__",
+                                "__PM_cell_resistance_26__",
+                                "__PM_cell_resistance_27__",
+                                "__PM_cell_resistance_28__",
+                                "__PM_cell_resistance_29__",
+                                "__PM_cell_resistance_30__",
+                                "__PM_cell_resistance_31__",
+                                "__PM_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_cell_voltage_7__",
+                            "variables": {
+                              "index": 7,
+                              "cell_entities": [
+                                "__PM_cell_voltage_1__",
+                                "__PM_cell_voltage_2__",
+                                "__PM_cell_voltage_3__",
+                                "__PM_cell_voltage_4__",
+                                "__PM_cell_voltage_5__",
+                                "__PM_cell_voltage_6__",
+                                "__PM_cell_voltage_7__",
+                                "__PM_cell_voltage_8__",
+                                "__PM_cell_voltage_9__",
+                                "__PM_cell_voltage_10__",
+                                "__PM_cell_voltage_11__",
+                                "__PM_cell_voltage_12__",
+                                "__PM_cell_voltage_13__",
+                                "__PM_cell_voltage_14__",
+                                "__PM_cell_voltage_15__",
+                                "__PM_cell_voltage_16__",
+                                "__PM_cell_voltage_17__",
+                                "__PM_cell_voltage_18__",
+                                "__PM_cell_voltage_19__",
+                                "__PM_cell_voltage_20__",
+                                "__PM_cell_voltage_21__",
+                                "__PM_cell_voltage_22__",
+                                "__PM_cell_voltage_23__",
+                                "__PM_cell_voltage_24__",
+                                "__PM_cell_voltage_25__",
+                                "__PM_cell_voltage_26__",
+                                "__PM_cell_voltage_27__",
+                                "__PM_cell_voltage_28__",
+                                "__PM_cell_voltage_29__",
+                                "__PM_cell_voltage_30__",
+                                "__PM_cell_voltage_31__",
+                                "__PM_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_cell_resistance_1__",
+                                "__PM_cell_resistance_2__",
+                                "__PM_cell_resistance_3__",
+                                "__PM_cell_resistance_4__",
+                                "__PM_cell_resistance_5__",
+                                "__PM_cell_resistance_6__",
+                                "__PM_cell_resistance_7__",
+                                "__PM_cell_resistance_8__",
+                                "__PM_cell_resistance_9__",
+                                "__PM_cell_resistance_10__",
+                                "__PM_cell_resistance_11__",
+                                "__PM_cell_resistance_12__",
+                                "__PM_cell_resistance_13__",
+                                "__PM_cell_resistance_14__",
+                                "__PM_cell_resistance_15__",
+                                "__PM_cell_resistance_16__",
+                                "__PM_cell_resistance_17__",
+                                "__PM_cell_resistance_18__",
+                                "__PM_cell_resistance_19__",
+                                "__PM_cell_resistance_20__",
+                                "__PM_cell_resistance_21__",
+                                "__PM_cell_resistance_22__",
+                                "__PM_cell_resistance_23__",
+                                "__PM_cell_resistance_24__",
+                                "__PM_cell_resistance_25__",
+                                "__PM_cell_resistance_26__",
+                                "__PM_cell_resistance_27__",
+                                "__PM_cell_resistance_28__",
+                                "__PM_cell_resistance_29__",
+                                "__PM_cell_resistance_30__",
+                                "__PM_cell_resistance_31__",
+                                "__PM_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_cell_voltage_8__",
+                            "variables": {
+                              "index": 8,
+                              "cell_entities": [
+                                "__PM_cell_voltage_1__",
+                                "__PM_cell_voltage_2__",
+                                "__PM_cell_voltage_3__",
+                                "__PM_cell_voltage_4__",
+                                "__PM_cell_voltage_5__",
+                                "__PM_cell_voltage_6__",
+                                "__PM_cell_voltage_7__",
+                                "__PM_cell_voltage_8__",
+                                "__PM_cell_voltage_9__",
+                                "__PM_cell_voltage_10__",
+                                "__PM_cell_voltage_11__",
+                                "__PM_cell_voltage_12__",
+                                "__PM_cell_voltage_13__",
+                                "__PM_cell_voltage_14__",
+                                "__PM_cell_voltage_15__",
+                                "__PM_cell_voltage_16__",
+                                "__PM_cell_voltage_17__",
+                                "__PM_cell_voltage_18__",
+                                "__PM_cell_voltage_19__",
+                                "__PM_cell_voltage_20__",
+                                "__PM_cell_voltage_21__",
+                                "__PM_cell_voltage_22__",
+                                "__PM_cell_voltage_23__",
+                                "__PM_cell_voltage_24__",
+                                "__PM_cell_voltage_25__",
+                                "__PM_cell_voltage_26__",
+                                "__PM_cell_voltage_27__",
+                                "__PM_cell_voltage_28__",
+                                "__PM_cell_voltage_29__",
+                                "__PM_cell_voltage_30__",
+                                "__PM_cell_voltage_31__",
+                                "__PM_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_cell_resistance_1__",
+                                "__PM_cell_resistance_2__",
+                                "__PM_cell_resistance_3__",
+                                "__PM_cell_resistance_4__",
+                                "__PM_cell_resistance_5__",
+                                "__PM_cell_resistance_6__",
+                                "__PM_cell_resistance_7__",
+                                "__PM_cell_resistance_8__",
+                                "__PM_cell_resistance_9__",
+                                "__PM_cell_resistance_10__",
+                                "__PM_cell_resistance_11__",
+                                "__PM_cell_resistance_12__",
+                                "__PM_cell_resistance_13__",
+                                "__PM_cell_resistance_14__",
+                                "__PM_cell_resistance_15__",
+                                "__PM_cell_resistance_16__",
+                                "__PM_cell_resistance_17__",
+                                "__PM_cell_resistance_18__",
+                                "__PM_cell_resistance_19__",
+                                "__PM_cell_resistance_20__",
+                                "__PM_cell_resistance_21__",
+                                "__PM_cell_resistance_22__",
+                                "__PM_cell_resistance_23__",
+                                "__PM_cell_resistance_24__",
+                                "__PM_cell_resistance_25__",
+                                "__PM_cell_resistance_26__",
+                                "__PM_cell_resistance_27__",
+                                "__PM_cell_resistance_28__",
+                                "__PM_cell_resistance_29__",
+                                "__PM_cell_resistance_30__",
+                                "__PM_cell_resistance_31__",
+                                "__PM_cell_resistance_32__"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "type": "custom:button-card",
+                        "show_icon": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "tap_action": {
+                          "action": "none"
+                        },
+                        "custom_fields": {
+                          "graph": {
+                            "card": {
+                              "type": "custom:apexcharts-card",
+                              "graph_span": "24h",
+                              "update_interval": "1min",
+                              "header": {
+                                "show": true,
+                                "title": "Ячейки · 24 часа",
+                                "show_states": true,
+                                "colorize_states": true,
+                                "standard_format": true
+                              },
+                              "yaxis": [
+                                {
+                                  "decimals": 3
+                                }
+                              ],
+                              "all_series_config": {
+                                "stroke_width": 2,
+                                "curve": "smooth",
+                                "extend_to": "now",
+                                "float_precision": 3,
+                                "group_by": {
+                                  "func": "avg",
+                                  "duration": "5min",
+                                  "fill": "null"
+                                }
+                              },
+                              "series": [
+                                {
+                                  "entity": "__PM_cell_voltage_1__",
+                                  "name": "Ячейка 1",
+                                  "color": "#42a5f5"
+                                },
+                                {
+                                  "entity": "__PM_cell_voltage_2__",
+                                  "name": "Ячейка 2",
+                                  "color": "#26a69a"
+                                },
+                                {
+                                  "entity": "__PM_cell_voltage_3__",
+                                  "name": "Ячейка 3",
+                                  "color": "#66bb6a"
+                                },
+                                {
+                                  "entity": "__PM_cell_voltage_4__",
+                                  "name": "Ячейка 4",
+                                  "color": "#d4e157"
+                                },
+                                {
+                                  "entity": "__PM_cell_voltage_5__",
+                                  "name": "Ячейка 5",
+                                  "color": "#ffee58"
+                                },
+                                {
+                                  "entity": "__PM_cell_voltage_6__",
+                                  "name": "Ячейка 6",
+                                  "color": "#ffa726"
+                                },
+                                {
+                                  "entity": "__PM_cell_voltage_7__",
+                                  "name": "Ячейка 7",
+                                  "color": "#ff7043"
+                                },
+                                {
+                                  "entity": "__PM_cell_voltage_8__",
+                                  "name": "Ячейка 8",
+                                  "color": "#a78bfa"
+                                },
+                                {
+                                  "entity": "__PM_cell_min_voltage__",
+                                  "name": "Минимум",
+                                  "color": "#e11d48",
+                                  "stroke_width": 3,
+                                  "type": "line",
+                                  "float_precision": 3
+                                },
+                                {
+                                  "entity": "__PM_cell_max_voltage__",
+                                  "name": "Максимум",
+                                  "color": "#facc15",
+                                  "stroke_width": 3,
+                                  "type": "line",
+                                  "float_precision": 3
+                                }
+                              ],
+                              "card_mod": {
+                                "style": "ha-card {\n  border-radius: 32px;\n  border: 1px solid rgba(255,255,255,.055);\n  background: linear-gradient(145deg,rgba(43,43,43,.98),rgba(25,25,25,.98));\n  box-shadow: 0 20px 44px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.055);\n  overflow: hidden;\n}\n"
+                              }
+                            }
+                          }
+                        },
+                        "styles": {
+                          "card": [
+                            {
+                              "padding": "0"
+                            },
+                            {
+                              "border": "none"
+                            },
+                            {
+                              "box-shadow": "none"
+                            },
+                            {
+                              "background": "none"
+                            },
+                            {
+                              "overflow": "visible"
+                            }
+                          ],
+                          "grid": [
+                            {
+                              "grid-template-areas": "\"graph\""
+                            },
+                            {
+                              "grid-template-columns": "minmax(0,1fr)"
+                            }
+                          ],
+                          "custom_fields": {
+                            "graph": [
+                              {
+                                "width": "100%"
+                              },
+                              {
+                                "min-width": "0"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "vertical-stack",
+              "cards": [
+                {
+                  "type": "custom:mushroom-title-card",
+                  "title": "BMS 2"
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "status",
+                  "entity": "__PM_bms2_available__",
+                  "name": "BMS 2",
+                  "icon": "mdi:battery-heart-variant"
+                },
+                {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "condition": "state",
+                      "entity": "__PM_bms2_available__",
+                      "state": "on"
+                    }
+                  ],
+                  "card": {
+                    "type": "vertical-stack",
+                    "cards": [
+                      {
+                        "type": "grid",
+                        "columns": 2,
+                        "square": false,
+                        "cards": [
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_bms2_soh__",
+                            "name": "Здоровье (SOH)",
+                            "icon": "mdi:heart-pulse",
+                            "variables": {
+                              "accent": "#55d6a9",
+                              "max_value": 100
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_bms2_cycle_count__",
+                            "name": "Циклы",
+                            "icon": "mdi:battery-sync",
+                            "variables": {
+                              "accent": "#ffb74d",
+                              "max_value": 6000
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_bms2_balance_current__",
+                            "name": "Ток балансировки",
+                            "icon": "mdi:scale-balance",
+                            "variables": {
+                              "accent": "#7e57c2",
+                              "max_value": 2
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_bms2_cell_delta__",
+                            "name": "Разброс ячеек",
+                            "icon": "mdi:vector-difference",
+                            "variables": {
+                              "accent": "#ab47bc",
+                              "max_value": 0.05
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "type": "custom:button-card",
+                        "template": "balance",
+                        "entity": "__PM_bms2_balancing__",
+                        "variables": {
+                          "bms_name": "BMS 2",
+                          "current_entity": "__PM_bms2_balance_current__"
+                        }
+                      },
+                      {
+                        "type": "custom:mushroom-title-card",
+                        "title": "Температуры и разброс ячеек",
+                        "subtitle": "Датчики BMS 2"
+                      },
+                      {
+                        "type": "grid",
+                        "columns": 2,
+                        "square": false,
+                        "cards": [
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_bms2_temperature_1__",
+                            "name": "BMS датчик 1",
+                            "icon": "mdi:thermometer",
+                            "variables": {
+                              "accent": "#ff7043",
+                              "max_value": 80
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_bms2_temperature_2__",
+                            "name": "BMS датчик 2",
+                            "icon": "mdi:thermometer",
+                            "variables": {
+                              "accent": "#ffb74d",
+                              "max_value": 80
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_bms2_mosfet_temperature__",
+                            "name": "Ключи MOSFET",
+                            "icon": "mdi:chip",
+                            "variables": {
+                              "accent": "#ef5350",
+                              "max_value": 90
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "metric",
+                            "entity": "__PM_bms2_cell_min_voltage__",
+                            "name": "Мин. ячейка",
+                            "icon": "mdi:arrow-collapse-down",
+                            "variables": {
+                              "accent": "#22d3ee",
+                              "max_value": 4
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "type": "custom:mushroom-title-card",
+                        "title": "Ячейки BMS 2",
+                        "subtitle": "Напряжение восьми ячеек и внутреннее сопротивление"
+                      },
+                      {
+                        "type": "grid",
+                        "columns": 2,
+                        "square": false,
+                        "cards": [
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_bms2_cell_voltage_1__",
+                            "variables": {
+                              "index": 1,
+                              "cell_entities": [
+                                "__PM_bms2_cell_voltage_1__",
+                                "__PM_bms2_cell_voltage_2__",
+                                "__PM_bms2_cell_voltage_3__",
+                                "__PM_bms2_cell_voltage_4__",
+                                "__PM_bms2_cell_voltage_5__",
+                                "__PM_bms2_cell_voltage_6__",
+                                "__PM_bms2_cell_voltage_7__",
+                                "__PM_bms2_cell_voltage_8__",
+                                "__PM_bms2_cell_voltage_9__",
+                                "__PM_bms2_cell_voltage_10__",
+                                "__PM_bms2_cell_voltage_11__",
+                                "__PM_bms2_cell_voltage_12__",
+                                "__PM_bms2_cell_voltage_13__",
+                                "__PM_bms2_cell_voltage_14__",
+                                "__PM_bms2_cell_voltage_15__",
+                                "__PM_bms2_cell_voltage_16__",
+                                "__PM_bms2_cell_voltage_17__",
+                                "__PM_bms2_cell_voltage_18__",
+                                "__PM_bms2_cell_voltage_19__",
+                                "__PM_bms2_cell_voltage_20__",
+                                "__PM_bms2_cell_voltage_21__",
+                                "__PM_bms2_cell_voltage_22__",
+                                "__PM_bms2_cell_voltage_23__",
+                                "__PM_bms2_cell_voltage_24__",
+                                "__PM_bms2_cell_voltage_25__",
+                                "__PM_bms2_cell_voltage_26__",
+                                "__PM_bms2_cell_voltage_27__",
+                                "__PM_bms2_cell_voltage_28__",
+                                "__PM_bms2_cell_voltage_29__",
+                                "__PM_bms2_cell_voltage_30__",
+                                "__PM_bms2_cell_voltage_31__",
+                                "__PM_bms2_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_bms2_cell_resistance_1__",
+                                "__PM_bms2_cell_resistance_2__",
+                                "__PM_bms2_cell_resistance_3__",
+                                "__PM_bms2_cell_resistance_4__",
+                                "__PM_bms2_cell_resistance_5__",
+                                "__PM_bms2_cell_resistance_6__",
+                                "__PM_bms2_cell_resistance_7__",
+                                "__PM_bms2_cell_resistance_8__",
+                                "__PM_bms2_cell_resistance_9__",
+                                "__PM_bms2_cell_resistance_10__",
+                                "__PM_bms2_cell_resistance_11__",
+                                "__PM_bms2_cell_resistance_12__",
+                                "__PM_bms2_cell_resistance_13__",
+                                "__PM_bms2_cell_resistance_14__",
+                                "__PM_bms2_cell_resistance_15__",
+                                "__PM_bms2_cell_resistance_16__",
+                                "__PM_bms2_cell_resistance_17__",
+                                "__PM_bms2_cell_resistance_18__",
+                                "__PM_bms2_cell_resistance_19__",
+                                "__PM_bms2_cell_resistance_20__",
+                                "__PM_bms2_cell_resistance_21__",
+                                "__PM_bms2_cell_resistance_22__",
+                                "__PM_bms2_cell_resistance_23__",
+                                "__PM_bms2_cell_resistance_24__",
+                                "__PM_bms2_cell_resistance_25__",
+                                "__PM_bms2_cell_resistance_26__",
+                                "__PM_bms2_cell_resistance_27__",
+                                "__PM_bms2_cell_resistance_28__",
+                                "__PM_bms2_cell_resistance_29__",
+                                "__PM_bms2_cell_resistance_30__",
+                                "__PM_bms2_cell_resistance_31__",
+                                "__PM_bms2_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_bms2_cell_voltage_2__",
+                            "variables": {
+                              "index": 2,
+                              "cell_entities": [
+                                "__PM_bms2_cell_voltage_1__",
+                                "__PM_bms2_cell_voltage_2__",
+                                "__PM_bms2_cell_voltage_3__",
+                                "__PM_bms2_cell_voltage_4__",
+                                "__PM_bms2_cell_voltage_5__",
+                                "__PM_bms2_cell_voltage_6__",
+                                "__PM_bms2_cell_voltage_7__",
+                                "__PM_bms2_cell_voltage_8__",
+                                "__PM_bms2_cell_voltage_9__",
+                                "__PM_bms2_cell_voltage_10__",
+                                "__PM_bms2_cell_voltage_11__",
+                                "__PM_bms2_cell_voltage_12__",
+                                "__PM_bms2_cell_voltage_13__",
+                                "__PM_bms2_cell_voltage_14__",
+                                "__PM_bms2_cell_voltage_15__",
+                                "__PM_bms2_cell_voltage_16__",
+                                "__PM_bms2_cell_voltage_17__",
+                                "__PM_bms2_cell_voltage_18__",
+                                "__PM_bms2_cell_voltage_19__",
+                                "__PM_bms2_cell_voltage_20__",
+                                "__PM_bms2_cell_voltage_21__",
+                                "__PM_bms2_cell_voltage_22__",
+                                "__PM_bms2_cell_voltage_23__",
+                                "__PM_bms2_cell_voltage_24__",
+                                "__PM_bms2_cell_voltage_25__",
+                                "__PM_bms2_cell_voltage_26__",
+                                "__PM_bms2_cell_voltage_27__",
+                                "__PM_bms2_cell_voltage_28__",
+                                "__PM_bms2_cell_voltage_29__",
+                                "__PM_bms2_cell_voltage_30__",
+                                "__PM_bms2_cell_voltage_31__",
+                                "__PM_bms2_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_bms2_cell_resistance_1__",
+                                "__PM_bms2_cell_resistance_2__",
+                                "__PM_bms2_cell_resistance_3__",
+                                "__PM_bms2_cell_resistance_4__",
+                                "__PM_bms2_cell_resistance_5__",
+                                "__PM_bms2_cell_resistance_6__",
+                                "__PM_bms2_cell_resistance_7__",
+                                "__PM_bms2_cell_resistance_8__",
+                                "__PM_bms2_cell_resistance_9__",
+                                "__PM_bms2_cell_resistance_10__",
+                                "__PM_bms2_cell_resistance_11__",
+                                "__PM_bms2_cell_resistance_12__",
+                                "__PM_bms2_cell_resistance_13__",
+                                "__PM_bms2_cell_resistance_14__",
+                                "__PM_bms2_cell_resistance_15__",
+                                "__PM_bms2_cell_resistance_16__",
+                                "__PM_bms2_cell_resistance_17__",
+                                "__PM_bms2_cell_resistance_18__",
+                                "__PM_bms2_cell_resistance_19__",
+                                "__PM_bms2_cell_resistance_20__",
+                                "__PM_bms2_cell_resistance_21__",
+                                "__PM_bms2_cell_resistance_22__",
+                                "__PM_bms2_cell_resistance_23__",
+                                "__PM_bms2_cell_resistance_24__",
+                                "__PM_bms2_cell_resistance_25__",
+                                "__PM_bms2_cell_resistance_26__",
+                                "__PM_bms2_cell_resistance_27__",
+                                "__PM_bms2_cell_resistance_28__",
+                                "__PM_bms2_cell_resistance_29__",
+                                "__PM_bms2_cell_resistance_30__",
+                                "__PM_bms2_cell_resistance_31__",
+                                "__PM_bms2_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_bms2_cell_voltage_3__",
+                            "variables": {
+                              "index": 3,
+                              "cell_entities": [
+                                "__PM_bms2_cell_voltage_1__",
+                                "__PM_bms2_cell_voltage_2__",
+                                "__PM_bms2_cell_voltage_3__",
+                                "__PM_bms2_cell_voltage_4__",
+                                "__PM_bms2_cell_voltage_5__",
+                                "__PM_bms2_cell_voltage_6__",
+                                "__PM_bms2_cell_voltage_7__",
+                                "__PM_bms2_cell_voltage_8__",
+                                "__PM_bms2_cell_voltage_9__",
+                                "__PM_bms2_cell_voltage_10__",
+                                "__PM_bms2_cell_voltage_11__",
+                                "__PM_bms2_cell_voltage_12__",
+                                "__PM_bms2_cell_voltage_13__",
+                                "__PM_bms2_cell_voltage_14__",
+                                "__PM_bms2_cell_voltage_15__",
+                                "__PM_bms2_cell_voltage_16__",
+                                "__PM_bms2_cell_voltage_17__",
+                                "__PM_bms2_cell_voltage_18__",
+                                "__PM_bms2_cell_voltage_19__",
+                                "__PM_bms2_cell_voltage_20__",
+                                "__PM_bms2_cell_voltage_21__",
+                                "__PM_bms2_cell_voltage_22__",
+                                "__PM_bms2_cell_voltage_23__",
+                                "__PM_bms2_cell_voltage_24__",
+                                "__PM_bms2_cell_voltage_25__",
+                                "__PM_bms2_cell_voltage_26__",
+                                "__PM_bms2_cell_voltage_27__",
+                                "__PM_bms2_cell_voltage_28__",
+                                "__PM_bms2_cell_voltage_29__",
+                                "__PM_bms2_cell_voltage_30__",
+                                "__PM_bms2_cell_voltage_31__",
+                                "__PM_bms2_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_bms2_cell_resistance_1__",
+                                "__PM_bms2_cell_resistance_2__",
+                                "__PM_bms2_cell_resistance_3__",
+                                "__PM_bms2_cell_resistance_4__",
+                                "__PM_bms2_cell_resistance_5__",
+                                "__PM_bms2_cell_resistance_6__",
+                                "__PM_bms2_cell_resistance_7__",
+                                "__PM_bms2_cell_resistance_8__",
+                                "__PM_bms2_cell_resistance_9__",
+                                "__PM_bms2_cell_resistance_10__",
+                                "__PM_bms2_cell_resistance_11__",
+                                "__PM_bms2_cell_resistance_12__",
+                                "__PM_bms2_cell_resistance_13__",
+                                "__PM_bms2_cell_resistance_14__",
+                                "__PM_bms2_cell_resistance_15__",
+                                "__PM_bms2_cell_resistance_16__",
+                                "__PM_bms2_cell_resistance_17__",
+                                "__PM_bms2_cell_resistance_18__",
+                                "__PM_bms2_cell_resistance_19__",
+                                "__PM_bms2_cell_resistance_20__",
+                                "__PM_bms2_cell_resistance_21__",
+                                "__PM_bms2_cell_resistance_22__",
+                                "__PM_bms2_cell_resistance_23__",
+                                "__PM_bms2_cell_resistance_24__",
+                                "__PM_bms2_cell_resistance_25__",
+                                "__PM_bms2_cell_resistance_26__",
+                                "__PM_bms2_cell_resistance_27__",
+                                "__PM_bms2_cell_resistance_28__",
+                                "__PM_bms2_cell_resistance_29__",
+                                "__PM_bms2_cell_resistance_30__",
+                                "__PM_bms2_cell_resistance_31__",
+                                "__PM_bms2_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_bms2_cell_voltage_4__",
+                            "variables": {
+                              "index": 4,
+                              "cell_entities": [
+                                "__PM_bms2_cell_voltage_1__",
+                                "__PM_bms2_cell_voltage_2__",
+                                "__PM_bms2_cell_voltage_3__",
+                                "__PM_bms2_cell_voltage_4__",
+                                "__PM_bms2_cell_voltage_5__",
+                                "__PM_bms2_cell_voltage_6__",
+                                "__PM_bms2_cell_voltage_7__",
+                                "__PM_bms2_cell_voltage_8__",
+                                "__PM_bms2_cell_voltage_9__",
+                                "__PM_bms2_cell_voltage_10__",
+                                "__PM_bms2_cell_voltage_11__",
+                                "__PM_bms2_cell_voltage_12__",
+                                "__PM_bms2_cell_voltage_13__",
+                                "__PM_bms2_cell_voltage_14__",
+                                "__PM_bms2_cell_voltage_15__",
+                                "__PM_bms2_cell_voltage_16__",
+                                "__PM_bms2_cell_voltage_17__",
+                                "__PM_bms2_cell_voltage_18__",
+                                "__PM_bms2_cell_voltage_19__",
+                                "__PM_bms2_cell_voltage_20__",
+                                "__PM_bms2_cell_voltage_21__",
+                                "__PM_bms2_cell_voltage_22__",
+                                "__PM_bms2_cell_voltage_23__",
+                                "__PM_bms2_cell_voltage_24__",
+                                "__PM_bms2_cell_voltage_25__",
+                                "__PM_bms2_cell_voltage_26__",
+                                "__PM_bms2_cell_voltage_27__",
+                                "__PM_bms2_cell_voltage_28__",
+                                "__PM_bms2_cell_voltage_29__",
+                                "__PM_bms2_cell_voltage_30__",
+                                "__PM_bms2_cell_voltage_31__",
+                                "__PM_bms2_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_bms2_cell_resistance_1__",
+                                "__PM_bms2_cell_resistance_2__",
+                                "__PM_bms2_cell_resistance_3__",
+                                "__PM_bms2_cell_resistance_4__",
+                                "__PM_bms2_cell_resistance_5__",
+                                "__PM_bms2_cell_resistance_6__",
+                                "__PM_bms2_cell_resistance_7__",
+                                "__PM_bms2_cell_resistance_8__",
+                                "__PM_bms2_cell_resistance_9__",
+                                "__PM_bms2_cell_resistance_10__",
+                                "__PM_bms2_cell_resistance_11__",
+                                "__PM_bms2_cell_resistance_12__",
+                                "__PM_bms2_cell_resistance_13__",
+                                "__PM_bms2_cell_resistance_14__",
+                                "__PM_bms2_cell_resistance_15__",
+                                "__PM_bms2_cell_resistance_16__",
+                                "__PM_bms2_cell_resistance_17__",
+                                "__PM_bms2_cell_resistance_18__",
+                                "__PM_bms2_cell_resistance_19__",
+                                "__PM_bms2_cell_resistance_20__",
+                                "__PM_bms2_cell_resistance_21__",
+                                "__PM_bms2_cell_resistance_22__",
+                                "__PM_bms2_cell_resistance_23__",
+                                "__PM_bms2_cell_resistance_24__",
+                                "__PM_bms2_cell_resistance_25__",
+                                "__PM_bms2_cell_resistance_26__",
+                                "__PM_bms2_cell_resistance_27__",
+                                "__PM_bms2_cell_resistance_28__",
+                                "__PM_bms2_cell_resistance_29__",
+                                "__PM_bms2_cell_resistance_30__",
+                                "__PM_bms2_cell_resistance_31__",
+                                "__PM_bms2_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_bms2_cell_voltage_5__",
+                            "variables": {
+                              "index": 5,
+                              "cell_entities": [
+                                "__PM_bms2_cell_voltage_1__",
+                                "__PM_bms2_cell_voltage_2__",
+                                "__PM_bms2_cell_voltage_3__",
+                                "__PM_bms2_cell_voltage_4__",
+                                "__PM_bms2_cell_voltage_5__",
+                                "__PM_bms2_cell_voltage_6__",
+                                "__PM_bms2_cell_voltage_7__",
+                                "__PM_bms2_cell_voltage_8__",
+                                "__PM_bms2_cell_voltage_9__",
+                                "__PM_bms2_cell_voltage_10__",
+                                "__PM_bms2_cell_voltage_11__",
+                                "__PM_bms2_cell_voltage_12__",
+                                "__PM_bms2_cell_voltage_13__",
+                                "__PM_bms2_cell_voltage_14__",
+                                "__PM_bms2_cell_voltage_15__",
+                                "__PM_bms2_cell_voltage_16__",
+                                "__PM_bms2_cell_voltage_17__",
+                                "__PM_bms2_cell_voltage_18__",
+                                "__PM_bms2_cell_voltage_19__",
+                                "__PM_bms2_cell_voltage_20__",
+                                "__PM_bms2_cell_voltage_21__",
+                                "__PM_bms2_cell_voltage_22__",
+                                "__PM_bms2_cell_voltage_23__",
+                                "__PM_bms2_cell_voltage_24__",
+                                "__PM_bms2_cell_voltage_25__",
+                                "__PM_bms2_cell_voltage_26__",
+                                "__PM_bms2_cell_voltage_27__",
+                                "__PM_bms2_cell_voltage_28__",
+                                "__PM_bms2_cell_voltage_29__",
+                                "__PM_bms2_cell_voltage_30__",
+                                "__PM_bms2_cell_voltage_31__",
+                                "__PM_bms2_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_bms2_cell_resistance_1__",
+                                "__PM_bms2_cell_resistance_2__",
+                                "__PM_bms2_cell_resistance_3__",
+                                "__PM_bms2_cell_resistance_4__",
+                                "__PM_bms2_cell_resistance_5__",
+                                "__PM_bms2_cell_resistance_6__",
+                                "__PM_bms2_cell_resistance_7__",
+                                "__PM_bms2_cell_resistance_8__",
+                                "__PM_bms2_cell_resistance_9__",
+                                "__PM_bms2_cell_resistance_10__",
+                                "__PM_bms2_cell_resistance_11__",
+                                "__PM_bms2_cell_resistance_12__",
+                                "__PM_bms2_cell_resistance_13__",
+                                "__PM_bms2_cell_resistance_14__",
+                                "__PM_bms2_cell_resistance_15__",
+                                "__PM_bms2_cell_resistance_16__",
+                                "__PM_bms2_cell_resistance_17__",
+                                "__PM_bms2_cell_resistance_18__",
+                                "__PM_bms2_cell_resistance_19__",
+                                "__PM_bms2_cell_resistance_20__",
+                                "__PM_bms2_cell_resistance_21__",
+                                "__PM_bms2_cell_resistance_22__",
+                                "__PM_bms2_cell_resistance_23__",
+                                "__PM_bms2_cell_resistance_24__",
+                                "__PM_bms2_cell_resistance_25__",
+                                "__PM_bms2_cell_resistance_26__",
+                                "__PM_bms2_cell_resistance_27__",
+                                "__PM_bms2_cell_resistance_28__",
+                                "__PM_bms2_cell_resistance_29__",
+                                "__PM_bms2_cell_resistance_30__",
+                                "__PM_bms2_cell_resistance_31__",
+                                "__PM_bms2_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_bms2_cell_voltage_6__",
+                            "variables": {
+                              "index": 6,
+                              "cell_entities": [
+                                "__PM_bms2_cell_voltage_1__",
+                                "__PM_bms2_cell_voltage_2__",
+                                "__PM_bms2_cell_voltage_3__",
+                                "__PM_bms2_cell_voltage_4__",
+                                "__PM_bms2_cell_voltage_5__",
+                                "__PM_bms2_cell_voltage_6__",
+                                "__PM_bms2_cell_voltage_7__",
+                                "__PM_bms2_cell_voltage_8__",
+                                "__PM_bms2_cell_voltage_9__",
+                                "__PM_bms2_cell_voltage_10__",
+                                "__PM_bms2_cell_voltage_11__",
+                                "__PM_bms2_cell_voltage_12__",
+                                "__PM_bms2_cell_voltage_13__",
+                                "__PM_bms2_cell_voltage_14__",
+                                "__PM_bms2_cell_voltage_15__",
+                                "__PM_bms2_cell_voltage_16__",
+                                "__PM_bms2_cell_voltage_17__",
+                                "__PM_bms2_cell_voltage_18__",
+                                "__PM_bms2_cell_voltage_19__",
+                                "__PM_bms2_cell_voltage_20__",
+                                "__PM_bms2_cell_voltage_21__",
+                                "__PM_bms2_cell_voltage_22__",
+                                "__PM_bms2_cell_voltage_23__",
+                                "__PM_bms2_cell_voltage_24__",
+                                "__PM_bms2_cell_voltage_25__",
+                                "__PM_bms2_cell_voltage_26__",
+                                "__PM_bms2_cell_voltage_27__",
+                                "__PM_bms2_cell_voltage_28__",
+                                "__PM_bms2_cell_voltage_29__",
+                                "__PM_bms2_cell_voltage_30__",
+                                "__PM_bms2_cell_voltage_31__",
+                                "__PM_bms2_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_bms2_cell_resistance_1__",
+                                "__PM_bms2_cell_resistance_2__",
+                                "__PM_bms2_cell_resistance_3__",
+                                "__PM_bms2_cell_resistance_4__",
+                                "__PM_bms2_cell_resistance_5__",
+                                "__PM_bms2_cell_resistance_6__",
+                                "__PM_bms2_cell_resistance_7__",
+                                "__PM_bms2_cell_resistance_8__",
+                                "__PM_bms2_cell_resistance_9__",
+                                "__PM_bms2_cell_resistance_10__",
+                                "__PM_bms2_cell_resistance_11__",
+                                "__PM_bms2_cell_resistance_12__",
+                                "__PM_bms2_cell_resistance_13__",
+                                "__PM_bms2_cell_resistance_14__",
+                                "__PM_bms2_cell_resistance_15__",
+                                "__PM_bms2_cell_resistance_16__",
+                                "__PM_bms2_cell_resistance_17__",
+                                "__PM_bms2_cell_resistance_18__",
+                                "__PM_bms2_cell_resistance_19__",
+                                "__PM_bms2_cell_resistance_20__",
+                                "__PM_bms2_cell_resistance_21__",
+                                "__PM_bms2_cell_resistance_22__",
+                                "__PM_bms2_cell_resistance_23__",
+                                "__PM_bms2_cell_resistance_24__",
+                                "__PM_bms2_cell_resistance_25__",
+                                "__PM_bms2_cell_resistance_26__",
+                                "__PM_bms2_cell_resistance_27__",
+                                "__PM_bms2_cell_resistance_28__",
+                                "__PM_bms2_cell_resistance_29__",
+                                "__PM_bms2_cell_resistance_30__",
+                                "__PM_bms2_cell_resistance_31__",
+                                "__PM_bms2_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_bms2_cell_voltage_7__",
+                            "variables": {
+                              "index": 7,
+                              "cell_entities": [
+                                "__PM_bms2_cell_voltage_1__",
+                                "__PM_bms2_cell_voltage_2__",
+                                "__PM_bms2_cell_voltage_3__",
+                                "__PM_bms2_cell_voltage_4__",
+                                "__PM_bms2_cell_voltage_5__",
+                                "__PM_bms2_cell_voltage_6__",
+                                "__PM_bms2_cell_voltage_7__",
+                                "__PM_bms2_cell_voltage_8__",
+                                "__PM_bms2_cell_voltage_9__",
+                                "__PM_bms2_cell_voltage_10__",
+                                "__PM_bms2_cell_voltage_11__",
+                                "__PM_bms2_cell_voltage_12__",
+                                "__PM_bms2_cell_voltage_13__",
+                                "__PM_bms2_cell_voltage_14__",
+                                "__PM_bms2_cell_voltage_15__",
+                                "__PM_bms2_cell_voltage_16__",
+                                "__PM_bms2_cell_voltage_17__",
+                                "__PM_bms2_cell_voltage_18__",
+                                "__PM_bms2_cell_voltage_19__",
+                                "__PM_bms2_cell_voltage_20__",
+                                "__PM_bms2_cell_voltage_21__",
+                                "__PM_bms2_cell_voltage_22__",
+                                "__PM_bms2_cell_voltage_23__",
+                                "__PM_bms2_cell_voltage_24__",
+                                "__PM_bms2_cell_voltage_25__",
+                                "__PM_bms2_cell_voltage_26__",
+                                "__PM_bms2_cell_voltage_27__",
+                                "__PM_bms2_cell_voltage_28__",
+                                "__PM_bms2_cell_voltage_29__",
+                                "__PM_bms2_cell_voltage_30__",
+                                "__PM_bms2_cell_voltage_31__",
+                                "__PM_bms2_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_bms2_cell_resistance_1__",
+                                "__PM_bms2_cell_resistance_2__",
+                                "__PM_bms2_cell_resistance_3__",
+                                "__PM_bms2_cell_resistance_4__",
+                                "__PM_bms2_cell_resistance_5__",
+                                "__PM_bms2_cell_resistance_6__",
+                                "__PM_bms2_cell_resistance_7__",
+                                "__PM_bms2_cell_resistance_8__",
+                                "__PM_bms2_cell_resistance_9__",
+                                "__PM_bms2_cell_resistance_10__",
+                                "__PM_bms2_cell_resistance_11__",
+                                "__PM_bms2_cell_resistance_12__",
+                                "__PM_bms2_cell_resistance_13__",
+                                "__PM_bms2_cell_resistance_14__",
+                                "__PM_bms2_cell_resistance_15__",
+                                "__PM_bms2_cell_resistance_16__",
+                                "__PM_bms2_cell_resistance_17__",
+                                "__PM_bms2_cell_resistance_18__",
+                                "__PM_bms2_cell_resistance_19__",
+                                "__PM_bms2_cell_resistance_20__",
+                                "__PM_bms2_cell_resistance_21__",
+                                "__PM_bms2_cell_resistance_22__",
+                                "__PM_bms2_cell_resistance_23__",
+                                "__PM_bms2_cell_resistance_24__",
+                                "__PM_bms2_cell_resistance_25__",
+                                "__PM_bms2_cell_resistance_26__",
+                                "__PM_bms2_cell_resistance_27__",
+                                "__PM_bms2_cell_resistance_28__",
+                                "__PM_bms2_cell_resistance_29__",
+                                "__PM_bms2_cell_resistance_30__",
+                                "__PM_bms2_cell_resistance_31__",
+                                "__PM_bms2_cell_resistance_32__"
+                              ]
+                            }
+                          },
+                          {
+                            "type": "custom:button-card",
+                            "template": "cell",
+                            "entity": "__PM_bms2_cell_voltage_8__",
+                            "variables": {
+                              "index": 8,
+                              "cell_entities": [
+                                "__PM_bms2_cell_voltage_1__",
+                                "__PM_bms2_cell_voltage_2__",
+                                "__PM_bms2_cell_voltage_3__",
+                                "__PM_bms2_cell_voltage_4__",
+                                "__PM_bms2_cell_voltage_5__",
+                                "__PM_bms2_cell_voltage_6__",
+                                "__PM_bms2_cell_voltage_7__",
+                                "__PM_bms2_cell_voltage_8__",
+                                "__PM_bms2_cell_voltage_9__",
+                                "__PM_bms2_cell_voltage_10__",
+                                "__PM_bms2_cell_voltage_11__",
+                                "__PM_bms2_cell_voltage_12__",
+                                "__PM_bms2_cell_voltage_13__",
+                                "__PM_bms2_cell_voltage_14__",
+                                "__PM_bms2_cell_voltage_15__",
+                                "__PM_bms2_cell_voltage_16__",
+                                "__PM_bms2_cell_voltage_17__",
+                                "__PM_bms2_cell_voltage_18__",
+                                "__PM_bms2_cell_voltage_19__",
+                                "__PM_bms2_cell_voltage_20__",
+                                "__PM_bms2_cell_voltage_21__",
+                                "__PM_bms2_cell_voltage_22__",
+                                "__PM_bms2_cell_voltage_23__",
+                                "__PM_bms2_cell_voltage_24__",
+                                "__PM_bms2_cell_voltage_25__",
+                                "__PM_bms2_cell_voltage_26__",
+                                "__PM_bms2_cell_voltage_27__",
+                                "__PM_bms2_cell_voltage_28__",
+                                "__PM_bms2_cell_voltage_29__",
+                                "__PM_bms2_cell_voltage_30__",
+                                "__PM_bms2_cell_voltage_31__",
+                                "__PM_bms2_cell_voltage_32__"
+                              ],
+                              "resistance_entities": [
+                                "__PM_bms2_cell_resistance_1__",
+                                "__PM_bms2_cell_resistance_2__",
+                                "__PM_bms2_cell_resistance_3__",
+                                "__PM_bms2_cell_resistance_4__",
+                                "__PM_bms2_cell_resistance_5__",
+                                "__PM_bms2_cell_resistance_6__",
+                                "__PM_bms2_cell_resistance_7__",
+                                "__PM_bms2_cell_resistance_8__",
+                                "__PM_bms2_cell_resistance_9__",
+                                "__PM_bms2_cell_resistance_10__",
+                                "__PM_bms2_cell_resistance_11__",
+                                "__PM_bms2_cell_resistance_12__",
+                                "__PM_bms2_cell_resistance_13__",
+                                "__PM_bms2_cell_resistance_14__",
+                                "__PM_bms2_cell_resistance_15__",
+                                "__PM_bms2_cell_resistance_16__",
+                                "__PM_bms2_cell_resistance_17__",
+                                "__PM_bms2_cell_resistance_18__",
+                                "__PM_bms2_cell_resistance_19__",
+                                "__PM_bms2_cell_resistance_20__",
+                                "__PM_bms2_cell_resistance_21__",
+                                "__PM_bms2_cell_resistance_22__",
+                                "__PM_bms2_cell_resistance_23__",
+                                "__PM_bms2_cell_resistance_24__",
+                                "__PM_bms2_cell_resistance_25__",
+                                "__PM_bms2_cell_resistance_26__",
+                                "__PM_bms2_cell_resistance_27__",
+                                "__PM_bms2_cell_resistance_28__",
+                                "__PM_bms2_cell_resistance_29__",
+                                "__PM_bms2_cell_resistance_30__",
+                                "__PM_bms2_cell_resistance_31__",
+                                "__PM_bms2_cell_resistance_32__"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "type": "custom:button-card",
+                        "show_icon": false,
+                        "show_name": false,
+                        "show_state": false,
+                        "tap_action": {
+                          "action": "none"
+                        },
+                        "custom_fields": {
+                          "graph": {
+                            "card": {
+                              "type": "custom:apexcharts-card",
+                              "graph_span": "24h",
+                              "update_interval": "1min",
+                              "header": {
+                                "show": true,
+                                "title": "Ячейки BMS 2 · 24 часа",
+                                "show_states": true,
+                                "colorize_states": true,
+                                "standard_format": true
+                              },
+                              "yaxis": [
+                                {
+                                  "decimals": 3
+                                }
+                              ],
+                              "all_series_config": {
+                                "stroke_width": 2,
+                                "curve": "smooth",
+                                "extend_to": "now",
+                                "float_precision": 3,
+                                "group_by": {
+                                  "func": "avg",
+                                  "duration": "5min",
+                                  "fill": "null"
+                                }
+                              },
+                              "series": [
+                                {
+                                  "entity": "__PM_bms2_cell_voltage_1__",
+                                  "name": "Ячейка 1",
+                                  "color": "#42a5f5"
+                                },
+                                {
+                                  "entity": "__PM_bms2_cell_voltage_2__",
+                                  "name": "Ячейка 2",
+                                  "color": "#26a69a"
+                                },
+                                {
+                                  "entity": "__PM_bms2_cell_voltage_3__",
+                                  "name": "Ячейка 3",
+                                  "color": "#66bb6a"
+                                },
+                                {
+                                  "entity": "__PM_bms2_cell_voltage_4__",
+                                  "name": "Ячейка 4",
+                                  "color": "#d4e157"
+                                },
+                                {
+                                  "entity": "__PM_bms2_cell_voltage_5__",
+                                  "name": "Ячейка 5",
+                                  "color": "#ffee58"
+                                },
+                                {
+                                  "entity": "__PM_bms2_cell_voltage_6__",
+                                  "name": "Ячейка 6",
+                                  "color": "#ffa726"
+                                },
+                                {
+                                  "entity": "__PM_bms2_cell_voltage_7__",
+                                  "name": "Ячейка 7",
+                                  "color": "#ff7043"
+                                },
+                                {
+                                  "entity": "__PM_bms2_cell_voltage_8__",
+                                  "name": "Ячейка 8",
+                                  "color": "#a78bfa"
+                                },
+                                {
+                                  "entity": "__PM_bms2_cell_min_voltage__",
+                                  "name": "Минимум",
+                                  "color": "#e11d48",
+                                  "stroke_width": 3,
+                                  "type": "line",
+                                  "float_precision": 3
+                                },
+                                {
+                                  "entity": "__PM_bms2_cell_max_voltage__",
+                                  "name": "Максимум",
+                                  "color": "#facc15",
+                                  "stroke_width": 3,
+                                  "type": "line",
+                                  "float_precision": 3
+                                }
+                              ],
+                              "card_mod": {
+                                "style": "ha-card {\n  border-radius: 32px;\n  border: 1px solid rgba(255,255,255,.055);\n  background: linear-gradient(145deg,rgba(43,43,43,.98),rgba(25,25,25,.98));\n  box-shadow: 0 20px 44px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.055);\n  overflow: hidden;\n}\n"
+                              }
+                            }
+                          }
+                        },
+                        "styles": {
+                          "card": [
+                            {
+                              "padding": "0"
+                            },
+                            {
+                              "border": "none"
+                            },
+                            {
+                              "box-shadow": "none"
+                            },
+                            {
+                              "background": "none"
+                            },
+                            {
+                              "overflow": "visible"
+                            }
+                          ],
+                          "grid": [
+                            {
+                              "grid-template-areas": "\"graph\""
+                            },
+                            {
+                              "grid-template-columns": "minmax(0,1fr)"
+                            }
+                          ],
+                          "custom_fields": {
+                            "graph": [
+                              {
+                                "width": "100%"
+                              },
+                              {
+                                "min-width": "0"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

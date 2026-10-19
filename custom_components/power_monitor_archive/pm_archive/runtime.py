@@ -2,12 +2,36 @@
 from pathlib import Path
 import random
 import sqlite3
+import math
+from collections import deque
+from .device import execute as execute_device, validate_request, json_response
+from .device_history import serve as serve_device_history
 import struct
 import threading
 import time
 
 from .store import ArchiveError, ArchiveStore
 from .sync import Source, Synchronizer
+
+
+def device_cache_seconds(path):
+    # Live snapshots are shared across viewers; configuration keeps its slower cache.
+    return 1 if path.split('?', 1)[0] in ('/api/telemetry', '/api/bms', '/api/relays') else 5
+
+
+def live_retry_seconds(failures, error):
+    return max(min(30, 2 ** min(failures, 5)), getattr(error, 'retry_after', 0))
+
+
+def remaining_energy_kwh(values):
+    """Estimate remaining bank energy from its aggregated Ah and bank voltage."""
+    capacity, voltage = values.get('remaining_capacity'), values.get('battery_voltage')
+    if values.get('bms_available') is not True:
+        return None
+    if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in (capacity, voltage)):
+        return None
+    energy = capacity * voltage / 1000 if capacity >= 0 and voltage > 0 else None
+    return energy if energy is not None and math.isfinite(energy) else None
 
 
 def power_summary(rows):
@@ -68,12 +92,131 @@ class Application:
         self.states = {}
         self.writer_error = None
         self.live_states = {}
+        self.interface_states = {}
+        self.interface_command = None
+        self.sources = {}
+        self.device_commands = deque()
+        self.device_cache = {}
+        self.ota_quiet_until = 0
+
+    def device_request(self, device, request):
+        with self.lock:
+            paired = next((dict(d) for d in self.devices if d['deviceId'] == device), None)
+        if paired is None:
+            raise ArchiveError('unknown device')
+        history = serve_device_history(self, paired, request)
+        if history is not None:
+            return history
+        path, headers, body = validate_request(request)
+        key = (device, path, tuple(sorted((k.lower(), v) for k, v in headers.items())))
+        with self.lock:
+            paired = next((d for d in self.devices if d['deviceId'] == device), None)
+            if not paired or not paired.get('deviceControl'):
+                return json_response({'error': 'device_pairing_required'}, 403)
+            if request['method'] == 'GET' and key in self.device_cache:
+                until, result = self.device_cache[key]
+                if time.monotonic() < until:
+                    return result
+            if self.stop.is_set() or self.writer_error or len(self.device_commands) >= 8:
+                return json_response({'error': 'device_busy'}, 503)
+            command = {'device': device, 'request': request, 'key': key,
+                       'signature': (paired['generation'], paired['address'], paired['token']),
+                       'deadline': time.monotonic() + 10, 'done': threading.Event()}
+            self.device_commands.append(command)
+        if not command['done'].wait(40):
+            raise ArchiveError('device result not confirmed')
+        result = command.get('result')
+        if isinstance(result, Exception) or result is None:
+            raise ArchiveError('device request failed; refresh before retrying a write')
+        return result
+
+    def _device_pass(self, syncs):
+        with self.lock:
+            if not self.device_commands:
+                return
+            command = self.device_commands.popleft()
+            device = command['device']
+            paired = next((d for d in self.devices if d['deviceId'] == device), None)
+        try:
+            if not paired or not paired.get('deviceControl') or time.monotonic() > command['deadline'] or self.stop.is_set():
+                raise ArchiveError('device command expired or permission removed')
+            if command['signature'] != (paired['generation'], paired['address'], paired['token']):
+                raise ArchiveError('device pairing changed')
+            sync = syncs[device]
+            if sync.stopped:
+                raise ArchiveError('device access stopped')
+            request, key = command['request'], command['key']
+            if request['path'].startswith('/api/update/session'):
+                self.ota_quiet_until = time.monotonic() + 20
+            with self.lock:
+                cached = self.device_cache.get(key)
+            if request['method'] == 'GET' and cached and cached[0] > time.monotonic():
+                result = cached[1]
+            else:
+                result = execute_device(sync.source, request)
+            with self.lock:
+                # Writes never retry. Invalidate reads even after an error:
+                # command admission is not proof that a durable save failed.
+                if request['method'] == 'POST':
+                    self.device_cache = {k: v for k, v in self.device_cache.items() if k[0] != device}
+                elif result['status'] == 200 and not request['path'].split('?')[0].endswith(('/result', '/unlock', '/full')):
+                    if len(self.device_cache) >= 128:
+                        self.device_cache.clear()
+                    self.device_cache[key] = (time.monotonic() + device_cache_seconds(request['path']), result)
+            command['result'] = result
+        except Exception as error:
+            command['result'] = error
+            with self.lock:
+                self.device_cache = {k: v for k, v in self.device_cache.items() if k[0] != device}
+        finally:
+            command['done'].set()
+
+    def set_interface(self, device, url):
+        """Queue one short-lived presentation command on the existing I/O owner."""
+        command = {"device": device, "url": url, "deadline": time.monotonic() + 10,
+                   "done": threading.Event(), "result": None}
+        with self.lock:
+            if self.stop.is_set() or self.writer_error or self.interface_command is not None:
+                raise ArchiveError("interface owner is busy or unavailable")
+            if not any(d["deviceId"] == device for d in self.devices):
+                raise ArchiveError("unknown device")
+            self.interface_command = command
+        if not command["done"].wait(40):
+            raise ArchiveError("result not confirmed; refresh before another action")
+        if isinstance(command["result"], Exception):
+            raise ArchiveError("interface save failed; check pairing and ESP connection")
+        return command["result"]
+
+    def _interface_pass(self, syncs):
+        with self.lock:
+            command = self.interface_command
+        if command is None:
+            return
+        try:
+            device = command["device"]
+            if time.monotonic() > command["deadline"] or not self.device_active(device) or self.stop.is_set():
+                raise ArchiveError("interface command expired")
+            sync = syncs[device]
+            if sync.stopped:
+                raise ArchiveError("access is stopped")
+            manifest = sync.source.manifest()
+            if manifest["deviceId"] != device or manifest["generation"] != sync.generation:
+                raise ArchiveError("device identity changed")
+            command["result"] = sync.source.set_interface(manifest, command["url"])
+            with self.lock:
+                self.interface_states[device] = {**self.interface_states.get(device, {}), **command["result"]}
+        except Exception as error:
+            command["result"] = error
+        finally:
+            with self.lock:
+                self.interface_command = None
+            command["done"].set()
 
     def run_writer(self):
         try:
             store = ArchiveStore(self.database)
             try:
-                syncs, due, live_due, signatures = {}, {}, {}, {}
+                syncs, due, live_due, signatures, live_failures = {}, {}, {}, {}, {}
                 while not self.stop.is_set():
                     with self.lock:
                         devices = list(self.devices)
@@ -81,23 +224,35 @@ class Application:
                     for removed in set(syncs) - active:
                         del syncs[removed]; due.pop(removed, None); signatures.pop(removed, None)
                         live_due.pop(removed, None)
+                        live_failures.pop(removed, None)
                         with self.lock:
                             self.live_states.pop(removed, None)
+                            self.interface_states.pop(removed, None)
+                            self.sources.pop(removed, None)
+                            self.device_cache = {k: v for k, v in self.device_cache.items() if k[0] != removed}
                     for d in devices:
                         signature = (d["generation"], d["address"], d["token"])
                         if signatures.get(d["deviceId"]) != signature:
+                            with self.lock:
+                                self.device_cache = {k: v for k, v in self.device_cache.items() if k[0] != d['deviceId']}
                             syncs[d["deviceId"]] = Synchronizer(store, Source(d["address"], d["token"]), d["deviceId"], d["generation"])
                             signatures[d["deviceId"]] = signature; due[d["deviceId"]] = 0
                             live_due[d["deviceId"]] = 0
+                            live_failures[d["deviceId"]] = 0
                             with self.lock:
                                 self.live_states.pop(d["deviceId"], None)
+                                self.interface_states.pop(d["deviceId"], None)
+                                self.sources[d["deviceId"]] = syncs[d["deviceId"]].source
                     for device, sync in syncs.items():
                         if self.stop.is_set():
                             break
+                        if self.device_commands or time.monotonic() < self.ota_quiet_until:
+                            continue
                         with self.lock:
                             if device in self.resume:
                                 sync.stopped = False; due[device] = 0; self.resume.discard(device)
                                 live_due[device] = 0
+                                live_failures[device] = 0
                         config = next((d for d in devices if d["deviceId"] == device), {})
                         if config.get("liveRead") and not sync.stopped and time.monotonic() >= live_due[device]:
                             try:
@@ -108,16 +263,24 @@ class Application:
                                 readings = sync.source.live(manifest)
                                 with self.lock:
                                     self.live_states[device] = {"values": readings, "at": time.time(), "available": True}
-                                live_due[device] = time.monotonic() + 10
+                                    self.interface_states[device] = {"interfaceUrl": manifest.get("interfaceUrl", ""),
+                                        "interfaceSupported": manifest.get("interfaceSupported") is True,
+                                        "interfaceControl": manifest.get("interfaceControl") is True}
+                                live_due[device] = time.monotonic() + 1.5
+                                live_failures[device] = 0
                             except Exception as error:
                                 if getattr(error, "status", None) in (401, 403):
                                     sync.stopped = True
                                     sync.status["state"] = "grant_disabled_or_revoked"
                                 elif sync.stopped:
                                     sync.status["state"] = "identity_changed_pairing_required"
+                                live_failures[device] = live_failures.get(device, 0) + 1
+                                retry = live_retry_seconds(live_failures[device], error)
                                 with self.lock:
-                                    self.live_states[device] = {"values": {}, "at": time.time(), "available": False}
-                                live_due[device] = time.monotonic() + 30
+                                    self.live_states[device] = {"values": {}, "at": time.time(), "available": False,
+                                        "errorType": type(error).__name__, "httpStatus": getattr(error, 'status', None),
+                                        "retrySeconds": retry}
+                                live_due[device] = time.monotonic() + retry
                         if time.monotonic() < due[device]:
                             continue
                         delay = sync.cycle(backfill_pages=4,
@@ -126,6 +289,8 @@ class Application:
                         with self.lock:
                             if any(d["deviceId"] == device for d in self.devices):
                                 self.states[device] = {"deviceId": device, "generation": sync.generation, **sync.status}
+                    self._interface_pass(syncs)
+                    self._device_pass(syncs)
                     self.stop.wait(0.2)
             finally:
                 store.close()
@@ -136,6 +301,12 @@ class Application:
     def status(self):
         with self.lock:
             states = [{"deviceId": d["deviceId"], "name": d.get("name", "Power Monitor"),
+                       "localUrl": "http://" + d["address"] + "/local/",
+                       "dashboardPath": d.get("dashboardPath"),
+                       "deviceControl": d.get("deviceControl") is True,
+                       "sourceStats": {"requests": getattr(self.sources.get(d["deviceId"]), "request_count", 0),
+                                       "responseBytes": getattr(self.sources.get(d["deviceId"]), "response_bytes", 0)},
+                       **self.interface_states.get(d["deviceId"], {}),
                        **self.states.get(d["deviceId"], {"state": "starting"})} for d in self.devices]
             return {"protocol": 1, "writerError": self.writer_error, "devices": states}
 
@@ -146,7 +317,9 @@ class Application:
     def current(self, device):
         with self.lock:
             value = self.live_states.get(device, {})
-            return {**value, "available": bool(value.get("available") and time.time() - value.get("at", 0) < 35)}
+            values = dict(value.get('values', {}))
+            values['remaining_energy'] = remaining_energy_kwh(values)
+            return {**value, 'values': values, "available": bool(value.get("available") and time.time() - value.get("at", 0) < 35)}
 
     def coverage(self, device):
         paired = next((d for d in self.devices if d["deviceId"] == device), None)

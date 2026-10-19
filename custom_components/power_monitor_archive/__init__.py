@@ -3,10 +3,12 @@ import asyncio
 from pathlib import Path
 import threading
 import sqlite3
+import logging
 
 import voluptuous as vol
-from homeassistant.components import frontend, panel_custom, websocket_api
+from homeassistant.components import frontend, panel_custom, websocket_api, persistent_notification
 from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.lovelace import LOVELACE_DATA
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
@@ -16,6 +18,7 @@ from .const import DOMAIN, PANEL, VERSION
 from .pm_archive.runtime import Application
 from .pm_archive.store import ArchiveError
 from .coordinator import PowerMonitorCoordinator
+from .frontend import ensure_frontend_resources
 
 
 def _create_app(hass):
@@ -26,10 +29,38 @@ def _create_app(hass):
     return app
 
 
+async def _register_card_resource(resources):
+    """Load cards after Lovelace installs its custom-element registry."""
+    url = "/local/power_monitor_archive/cards-loader.js?v=" + VERSION
+    await resources.async_get_info()
+    owned = [item for item in resources.async_items()
+             if item.get("url", "").split("?", 1)[0] in
+             ("/power_monitor_archive/cards.js", "/local/power_monitor_archive/cards-loader.js")]
+    if hasattr(resources, "async_create_item"):
+        if not owned:
+            await resources.async_create_item({"url": url, "res_type": "module"})
+        for item in owned:
+            if item.get("url") != url or item.get("type") != "module":
+                await resources.async_update_item(item["id"], {"url": url, "res_type": "module"})
+    else:
+        # YAML resources are a runtime collection; never rewrite user YAML.
+        resources.data = [item for item in resources.async_items() if item not in owned]
+        resources.data.append({"url": url, "type": "module"})
+
+
 async def async_setup(hass, config):
     state = hass.data.setdefault(DOMAIN, {})
     if "app" in state:
         return True
+    def install_loader():
+        # Only our loader and pinned vendor assets are owned by this integration.
+        # User dashboards and other www resources are never copied or changed.
+        target = Path(hass.config.path("www", DOMAIN, "cards-loader.js"))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_suffix(".js.pmnew")
+        temporary.write_bytes(Path(__file__).with_name("cards-loader.js").read_bytes())
+        temporary.replace(target)
+    await hass.async_add_executor_job(install_loader)
     state["app"] = await hass.async_add_executor_job(_create_app, hass)
     state["reads"] = asyncio.Semaphore(1)
     state["admitted_reads"] = 0
@@ -47,10 +78,27 @@ async def async_setup(hass, config):
     state["stop_unsub"] = hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, stop)
     await hass.http.async_register_static_paths([StaticPathConfig(
         "/power_monitor_archive/panel.js", str(Path(__file__).with_name("panel.js")), False), StaticPathConfig(
+        "/power_monitor_archive/dashboard.js", str(Path(__file__).with_name("dashboard.js")), False), StaticPathConfig(
+        "/power_monitor_archive/cards.js", str(Path(__file__).with_name("cards.js")), False), StaticPathConfig(
+        "/power_monitor_archive/device-card.js", str(Path(__file__).with_name("device-card.js")), False), StaticPathConfig(
+        "/power_monitor_archive/dashboard-template.json", str(Path(__file__).with_name("dashboard-template.json")), False), StaticPathConfig(
         "/power_monitor_archive/brand.svg", str(Path(__file__).with_name("brand.svg")), True)])
+    await hass.http.async_register_static_paths([
+        StaticPathConfig('/power_monitor_archive/' + name, str(Path(__file__).with_name(name)), False)
+        for name in ('dashboard-setup.js', 'control-schema.js', 'control-api.js', 'control-views.js',
+                     'i18n.js', 'i18n-messages.js', 'control-validation.js', 'control-hardware.js', 'control-backup.js', 'control-ota.js', 'control-ui.js', 'control.css', 'inverter-catalog.js')
+    ])
     websocket_api.async_register_command(hass, websocket_archive)
+    websocket_api.async_register_command(hass, websocket_device)
+    try:
+        await ensure_frontend_resources(hass, hass.data[LOVELACE_DATA].resources)
+        persistent_notification.async_dismiss(hass, DOMAIN+'_frontend')
+    except (OSError, ValueError) as error:
+        logging.getLogger(__name__).warning('Frontend resources not ready: %s', type(error).__name__)
+        persistent_notification.async_create(hass, 'Power Monitor could not download its dashboard cards. Restore Internet access and reload the integration.', title='Power Monitor', notification_id=DOMAIN+'_frontend')
+    await _register_card_resource(hass.data[LOVELACE_DATA].resources)
     await panel_custom.async_register_panel(hass, frontend_url_path=PANEL,
-        webcomponent_name="power-monitor-panel", sidebar_title="Power Monitor",
+        webcomponent_name="power-monitor-panel", sidebar_title=None if any(e.options.get("dashboardPath") for e in hass.config_entries.async_entries(DOMAIN)) else "Power Monitor",
         sidebar_icon="mdi:flash", module_url="/power_monitor_archive/panel.js?v=" + VERSION,
         require_admin=True)
     return True
@@ -67,7 +115,7 @@ async def async_setup_entry(hass, entry):
     with app.lock:
         if len(app.devices) >= 8 and entry.data["deviceId"] not in {d["deviceId"] for d in app.devices}:
             return False
-        app.devices = [d for d in app.devices if d["deviceId"] != entry.data["deviceId"]] + [dict(entry.data)]
+        app.devices = [d for d in app.devices if d["deviceId"] != entry.data["deviceId"]] + [{**entry.data, "dashboardPath": entry.options.get("dashboardPath")}]
     state["entries"][entry.entry_id] = entry
     if entry.data.get("liveRead"):
         coordinator=PowerMonitorCoordinator(hass,app,entry.data["deviceId"])
@@ -97,11 +145,13 @@ async def async_unload_entry(hass, entry):
 
 @websocket_api.websocket_command({
     vol.Required("type"): DOMAIN + "/query",
-    vol.Required("action"): vol.In(("status", "coverage", "history", "days", "resume")),
+    vol.Required("action"): vol.In(("status", "coverage", "history", "days", "resume", "current", "interface", "dashboard")),
     vol.Optional("device"): vol.All(str, vol.Match(r"^[0-9a-f]{12}$")),
     vol.Optional("start"): vol.All(int, vol.Range(min=0, max=0xffffffff)),
     vol.Optional("end"): vol.All(int, vol.Range(min=0, max=0xffffffff)),
     vol.Optional("maximum", default=1440): vol.All(int, vol.Range(min=10, max=2000)),
+    vol.Optional("url"): vol.All(str, vol.Length(max=192)),
+    vol.Optional("dashboardPath"): vol.All(str, vol.Match(r"^power-monitor-[0-9a-f]{12}$")),
 })
 @websocket_api.async_response
 async def websocket_archive(hass, connection, msg):
@@ -124,8 +174,30 @@ async def websocket_archive(hass, connection, msg):
             app.resume.add(device)
     if not known:
         connection.send_error(msg["id"], "unknown_device", "Device is not configured"); return
+    if action == "dashboard":
+        path = msg.get("dashboardPath")
+        if path != "power-monitor-" + device:
+            connection.send_error(msg["id"], "invalid_format", "Device dashboard path required"); return
+        entry = next((e for e in state["entries"].values() if e.data["deviceId"] == device), None)
+        if entry is None:
+            connection.send_error(msg["id"], "unknown_device", "Device is not configured"); return
+        hass.config_entries.async_update_entry(entry, options={**entry.options, "dashboardPath": path})
+        with app.lock:
+            for item in app.devices:
+                if item["deviceId"] == device:
+                    item["dashboardPath"] = path
+        panel = hass.data.get(frontend.DATA_PANELS, {}).get(PANEL)
+        if panel:
+            frontend.async_register_built_in_panel(hass, panel.component_name,
+                frontend_url_path=PANEL, config=panel.config, require_admin=True,
+                update=True, show_in_sidebar=False)
+        connection.send_result(msg["id"], {"saved": True, "dashboardPath": path}); return
     if action == "resume":
         connection.send_result(msg["id"], {"accepted": True}); return
+    if action == "current":
+        connection.send_result(msg["id"], app.current(device)); return
+    if action == "interface" and "url" not in msg:
+        connection.send_error(msg["id"], "invalid_format", "Panel URL is required"); return
     if state["admitted_reads"] >= 4:
         connection.send_error(msg["id"], "busy", "Please retry shortly"); return
     state["admitted_reads"] += 1
@@ -133,6 +205,8 @@ async def websocket_archive(hass, connection, msg):
         async with state["reads"]:
             if action == "coverage":
                 result = await hass.async_add_executor_job(app.coverage, device)
+            elif action == "interface":
+                result = await hass.async_add_executor_job(app.set_interface, device, msg["url"])
             else:
                 result = await hass.async_add_executor_job(getattr(app, action), device,
                     msg["start"], msg["end"], msg["maximum"])
@@ -141,3 +215,33 @@ async def websocket_archive(hass, connection, msg):
         connection.send_error(msg["id"], "archive_unavailable", "Archive is temporarily unavailable")
     finally:
         state["admitted_reads"] -= 1
+
+
+@websocket_api.websocket_command({
+    vol.Required('type'): DOMAIN + '/device',
+    vol.Required('device'): vol.All(str, vol.Match(r'^[0-9a-f]{12}$')),
+    vol.Required('request'): {
+        vol.Required('method'): vol.In(('GET', 'POST')),
+        vol.Required('path'): vol.All(str, vol.Length(max=256)),
+        vol.Optional('headers', default={}): dict,
+        vol.Optional('body', default=''): vol.All(str, vol.Length(max=90000)),
+    },
+})
+@websocket_api.async_response
+async def websocket_device(hass, connection, msg):
+    """The paired device is the only target; HA authorizes each request."""
+    if not connection.user.is_admin:
+        connection.send_error(msg['id'], 'unauthorized', 'Administrator access required'); return
+    state = hass.data.get(DOMAIN)
+    if not state or 'app' not in state:
+        connection.send_error(msg['id'], 'not_ready', 'Integration is starting'); return
+    if state.get('device_admitted', 0) >= 8:
+        connection.send_error(msg['id'], 'busy', 'Device is busy'); return
+    state['device_admitted'] = state.get('device_admitted', 0) + 1
+    try:
+        result = await hass.async_add_executor_job(state['app'].device_request, msg['device'], msg['request'])
+        connection.send_result(msg['id'], result)
+    except (ArchiveError, OSError, sqlite3.Error):
+        connection.send_error(msg['id'], 'device_unavailable', 'Device response not confirmed')
+    finally:
+        state['device_admitted'] -= 1

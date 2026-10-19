@@ -19,6 +19,7 @@ def definitions():
     for key,name in (("pv_energy_today","Солнечная энергия сегодня"),("grid_import_today","Из сети сегодня"),("load_energy_today","Потребление сегодня"),("battery_charge_energy_today","Заряд батареи сегодня"),("battery_discharge_energy_today","Разряд батареи сегодня")):
         add(key,name,"kWh","energy")
     add("remaining_capacity","Оставшаяся ёмкость","Ah",None)
+    add("remaining_energy","Оставшаяся энергия банка","kWh","energy")
     add("cell_delta","Разница напряжений ячеек","V","voltage")
     add("cycle_count","Циклы батареи",None,None)
     add("wifi_rssi","Уровень Wi-Fi","dBm","signal_strength")
@@ -57,7 +58,10 @@ class PowerMonitorSensor(PowerMonitorEntity, SensorEntity):
         self._attr_native_unit_of_measurement=unit
         if kind:self._attr_device_class=SensorDeviceClass(kind)
         self._attr_state_class=SensorStateClass.TOTAL_INCREASING if kind=="energy" else SensorStateClass.MEASUREMENT if unit and kind!="duration" else None
-        if "cell_" in key or "resistance" in key:self._attr_entity_registry_enabled_default=False
+        if key == 'remaining_energy':
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_suggested_display_precision = 2
+        if "resistance" in key:self._attr_entity_registry_enabled_default=False
 
     @property
     def native_value(self):
