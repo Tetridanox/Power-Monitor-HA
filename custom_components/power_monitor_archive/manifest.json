@@ -1,7 +1,7 @@
 {
   "domain": "power_monitor_archive",
   "name": "Power Monitor",
-  "version": "1.0.161",
+  "version": "1.0.162",
   "config_flow": true,
   "dependencies": ["frontend", "http", "panel_custom", "websocket_api"],
   "codeowners": ["@Tetridanox"],
