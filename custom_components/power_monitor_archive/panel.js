@@ -131,7 +131,7 @@ class PowerMonitorPanel extends HTMLElement {
     }));
     const mobile=this.clientWidth<600,w=mobile?Math.max(320,this.clientWidth-55):1100,h=mobile?320:380;
     const units=[...new Set(active.map(s=>energy?'кВт·ч':s.unit))];if(!units.length)units.push(energy?'кВт·ч':'Вт');
-    const left=mobile?52:72,right=w-15-Math.max(0,units.length-1)*(mobile?43:65),top=28,bottom=h-45;
+    const left=mobile?52:72,right=w-15,top=28,bottom=h-45;
     const x=t=>left+(t-start)/(end-start)*(right-left),axes=new Map();
     for(const unit of units){const values=active.filter(s=>(energy?'кВт·ч':s.unit)===unit).flatMap(s=>points.filter(p=>this.valid(p,s,energy)).map(p=>this.value(p,s,energy)));let lo=Math.min(0,...values),hi=Math.max(1,...values);
       if(unit==='%'){lo=0;hi=100}else if(!energy&&unit==='В'&&values.length){lo=Math.max(0,Math.min(...values)*.95);hi=Math.max(lo+1,Math.max(...values)*1.05)}
@@ -140,7 +140,7 @@ class PowerMonitorPanel extends HTMLElement {
     const y=(v,s)=>{const a=axes.get(energy?'кВт·ч':s?.unit||units[0]);return bottom-(v-a.lo)/(a.hi-a.lo)*(bottom-top)};
     model.layout={w,h,left,right,top,bottom,x,y,active};let svg='';
     units.forEach((unit,index)=>{const a=axes.get(unit),series=active.find(s=>(energy?'кВт·ч':s.unit)===unit),color=index?series?.color:'var(--secondary-text-color)',axis=index?right+12+(index-1)*(mobile?43:65):left-9;
-      svg+=`<text x="${axis}" y="14" text-anchor="${index?'start':'end'}" style="fill:${color}">${unit==='Вт'&&a.hi>=1000?'кВт':unit}</text>`;
+      if(!index)svg+=`<text x="${axis}" y="14" text-anchor="${index?'start':'end'}" style="fill:${color}">${unit==='Вт'&&a.hi>=1000?'кВт':unit}</text>`;
       for(let v=a.lo;v<=a.hi+a.step*.01;v+=a.step){const n=energy||unit==='Вт'&&a.hi>=1000?v/1000:v;
         if(!index)svg+=`<line class="axis-grid" x1="${left}" x2="${right}" y1="${y(v,series)}" y2="${y(v,series)}"/>`;
         if(!index)svg+=`<text x="${axis}" y="${y(v,series)+4}" text-anchor="end" style="fill:${color}">${new Intl.NumberFormat('ru',{maximumFractionDigits:2}).format(n)}</text>`}
