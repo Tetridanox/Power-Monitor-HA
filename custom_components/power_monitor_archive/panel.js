@@ -143,7 +143,7 @@ class PowerMonitorPanel extends HTMLElement {
       svg+=`<text x="${axis}" y="14" text-anchor="${index?'start':'end'}" style="fill:${color}">${unit==='Вт'&&a.hi>=1000?'кВт':unit}</text>`;
       for(let v=a.lo;v<=a.hi+a.step*.01;v+=a.step){const n=energy||unit==='Вт'&&a.hi>=1000?v/1000:v;
         if(!index)svg+=`<line class="axis-grid" x1="${left}" x2="${right}" y1="${y(v,series)}" y2="${y(v,series)}"/>`;
-        svg+=`<text x="${axis}" y="${y(v,series)+4}" text-anchor="${index?'start':'end'}" style="fill:${color}">${new Intl.NumberFormat('ru',{maximumFractionDigits:2}).format(n)}</text>`}
+        if(!index)svg+=`<text x="${axis}" y="${y(v,series)+4}" text-anchor="end" style="fill:${color}">${new Intl.NumberFormat('ru',{maximumFractionDigits:2}).format(n)}</text>`}
     });
     const ticks=mobile?3:6;
     for(let i=0;i<=ticks;i++){const t=start+(end-start)*i/ticks;const label=new Date(t*1000).toLocaleString('ru',end-start<=86401?{hour:'2-digit',minute:'2-digit'}:{day:'2-digit',month:'2-digit'});
