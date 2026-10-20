@@ -1,10 +1,10 @@
-import {validateSettings,validateRelay,validateTariff,validateTelegram} from './control-validation.js?v=1.0.207';
-import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.207';
-import {el,icon,button,errorText,eventTime,eventStamp,eventMeta,searchCities,sameValue,verifyPatch,layoutFields,telegramSettingsPatch} from './control-ui.js?v=1.0.207';
-import {RELAY_GROUPS,RELAY_KEYS,TARIFF_GROUPS,SETTINGS_GROUPS,TELEGRAM_GROUPS,MQTT_FIELDS,REASONS,INVERTER_PROFILES,PROTOCOL_LABELS,EVENT_LABELS,SEVERITY_LABELS,LOGGER_PHASES,DELIVERY_LABELS,pick} from './control-schema.js?v=1.0.207';
-import {wait} from './control-api.js?v=1.0.207';
-import {updateFirmware} from './control-ota.js?v=1.0.207';
-import {exportDialog,importSettings} from './control-backup.js?v=1.0.207';
+import {validateSettings,validateRelay,validateTariff,validateTelegram} from './control-validation.js?v=1.0.213';
+import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.213';
+import {el,icon,button,errorText,eventTime,eventStamp,eventMeta,searchCities,sameValue,verifyPatch,layoutFields,telegramSettingsPatch} from './control-ui.js?v=1.0.213';
+import {RELAY_GROUPS,RELAY_KEYS,TARIFF_GROUPS,SETTINGS_GROUPS,TELEGRAM_GROUPS,MQTT_FIELDS,REASONS,INVERTER_PROFILES,PROTOCOL_LABELS,EVENT_LABELS,SEVERITY_LABELS,LOGGER_PHASES,DELIVERY_LABELS,pick} from './control-schema.js?v=1.0.213';
+import {wait} from './control-api.js?v=1.0.213';
+import {updateFirmware} from './control-ota.js?v=1.0.213';
+import {exportDialog,importSettings} from './control-backup.js?v=1.0.213';
 const modeOf=r=>r.mode==='manual_on'?'on':r.mode==='manual_off'?'off':r.mode;
 const finite=patch=>!Object.values(patch).some(v=>typeof v==='number'&&!Number.isFinite(v));
 export const RelayViews={

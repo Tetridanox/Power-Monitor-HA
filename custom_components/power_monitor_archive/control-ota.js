@@ -1,6 +1,6 @@
-import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.207';
+import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.213';
 /* Ticketed OTA protocol, with read-only reconciliation after an ambiguous POST. */
-import {wait} from './control-api.js?v=1.0.207';
+import {wait} from './control-api.js?v=1.0.213';
 export async function updateFirmware(api,file,progress){
   if(!file||file.size<1024||file.size>0x300000)throw new Error(t('Неверный размер образа'));
   if(new Uint8Array(await file.slice(0,1).arrayBuffer())[0]!==0xe9)throw new Error(t('Это не образ ESP'));

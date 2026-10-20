@@ -1,6 +1,6 @@
-import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.207';
-import {el,button,telegramSettingsPatch} from './control-ui.js?v=1.0.207';
-import {RELAY_KEYS,TARIFF_GROUPS,SETTINGS_GROUPS,TELEGRAM_GROUPS,MQTT_FIELDS,pick} from './control-schema.js?v=1.0.207';
+import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.213';
+import {el,button,telegramSettingsPatch} from './control-ui.js?v=1.0.213';
+import {RELAY_KEYS,TARIFF_GROUPS,SETTINGS_GROUPS,TELEGRAM_GROUPS,MQTT_FIELDS,pick} from './control-schema.js?v=1.0.213';
 const keys=groups=>groups.flatMap(([,fields])=>fields.map(f=>f.key));
 const sections={relays:'Реле',tariff:'Ночной тариф',tg:'Telegram',ha:'MQTT',profile:'Профиль инвертора',wifi:'Сеть',forecast:'Прогноз PV',bms:'BMS',security:'Пароли доступа'};
 const telegram=data=>({...pick(data,['enabled','language','dailyReportHour','weeklyReportDay','profiles','token']),...pick(data.notifications||data,['gridLost','gridRestored','lowBattery','fullBattery']),...pick(data.thresholds||data,['lowSoc','recoverySoc','fullSoc','fullResetSoc','fullEndCurrent','fullConfirmSeconds'])});

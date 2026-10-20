@@ -1,5 +1,8 @@
 /* [Ukrainian, English], keyed by the canonical Russian application message. */
 export const messages={
+ "T инв.": ["T інв.", "Inverter T"],
+ "По точкам графика · мин. ": ["За точками графіка · мін. ", "Displayed samples · min. "],
+ "Сбросить масштаб": ["Скинути масштаб", "Reset zoom"],
  "24 часа": [
   "24 години",
   "24 hours"

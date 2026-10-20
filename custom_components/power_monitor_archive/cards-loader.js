@@ -1,5 +1,5 @@
 /* Served by HA's /local/ before the integration's routes finish starting. */
-const version='1.0.207';
+const version='1.0.213';
 const root='/power_monitor_archive/';
 const started=Date.now();
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));

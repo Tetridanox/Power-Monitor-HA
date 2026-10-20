@@ -1,7 +1,7 @@
-import {t} from './i18n.js?v=1.0.207';
+import {t} from './i18n.js?v=1.0.213';
 const resourcesReady=items=>['button-card.js','mushroom.js','apexcharts-card.js','card-mod.js','power-flow-card-plus.js'].every(file=>items.some(x=>x.url?.split('?')[0].endsWith('/'+file)));
 export async function ensureDashboard(hass,device,{fetchTemplate=async()=>{
-  const response=await fetch('/power_monitor_archive/dashboard-template.json?v=1.0.207');
+  const response=await fetch('/power_monitor_archive/dashboard-template.json?v=1.0.213');
   if(!response.ok)throw new Error('template_unavailable');return response.json();
 },requireStyled=false}={}){
   const path='power-monitor-'+device,existing=await hass.callWS({type:'lovelace/dashboards/list'});
