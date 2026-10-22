@@ -1,10 +1,23 @@
-import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.213';
+import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.220';
 /* Ticketed OTA protocol, with read-only reconciliation after an ambiguous POST. */
-import {wait} from './control-api.js?v=1.0.213';
+import {wait} from './control-api.js?v=1.0.220';
+// esp_image_header_t (24) + first segment header (8) + esp_app_desc_t (256).
+// This is a metadata preview, not a replacement for ESP's image validation.
+export async function softwareImageVersion(file){
+  if(!file||file.size<1024||file.size>0x300000)throw new Error(t('Неверный размер образа'));
+  const bytes=new Uint8Array(await file.slice(0,288).arrayBuffer());
+  if(bytes.length!==288||bytes[0]!==0xe9)throw new Error(t('Это не образ ESP'));
+  const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  if(view.getUint32(28,true)<256||view.getUint32(28,true)>file.size-32||view.getUint32(32,true)!==0xabcd5432)return null;
+  const version=bytes.subarray(48,80),end=version.indexOf(0);
+  if(end<1||!version.subarray(0,end).every(c=>c>=32&&c<=126))return null;
+  return new TextDecoder().decode(version.subarray(0,end)).trim()||null;
+}
 export async function updateFirmware(api,file,progress){
   if(!file||file.size<1024||file.size>0x300000)throw new Error(t('Неверный размер образа'));
   if(new Uint8Array(await file.slice(0,1).arrayBuffer())[0]!==0xe9)throw new Error(t('Это не образ ESP'));
-  const headers={'X-PM-OTA':'1'};let upload,committed=false,confirmed=0;
+  const headers={'X-PM-OTA':'1'};let upload,committed=false,confirmed=0,received=0;const started=Date.now();
+  const report=(pct,message,stage='upload')=>progress(pct,message,{received,total:file.size,elapsedMs:Date.now()-started,stage});
   const status=async()=>{const value=await api.get('update/session/status');if(String(value.upload)!==String(upload))throw new Error(t('Сессия OTA изменилась'));return value};
   const consume=async(ticket,state,received)=>{
     if(!ticket)throw new Error(t('Нет номера операции OTA'));
@@ -14,7 +27,7 @@ export async function updateFirmware(api,file,progress){
     throw new Error(t('Результат OTA не подтверждён'));
   };
   try{
-    progress(0,t('Подготовка…'));const begin=await api.post('update/session',undefined,{...headers,'X-OTA-Size':String(file.size)});upload=begin.ticket;
+    report(0,t('Подготовка…'),'prepare');const begin=await api.post('update/session',undefined,{...headers,'X-OTA-Size':String(file.size)});upload=begin.ticket;
     const initial=await consume(upload,'receiving',0);if(initial.state!=='receiving')throw new Error(t('ESP не начала приём'));
     for(let offset=0;offset<file.size;){
       const chunk=new Uint8Array(await file.slice(offset,offset+4096).arrayBuffer());let complete;
@@ -27,17 +40,17 @@ export async function updateFirmware(api,file,progress){
         else throw error;
       }
       if(complete.state!=='receiving'||complete.received!==offset+chunk.length)throw new Error(t('Смещение записи OTA не совпало'));
-      offset+=chunk.length;confirmed=Math.floor(offset*100/file.size);progress(confirmed,`${t("Передано ")}${confirmed}%`);
+      offset+=chunk.length;received=offset;confirmed=Math.floor(offset*100/file.size);report(confirmed,`${t("Передано ")}${confirmed}%`);
     }
-    progress(100,t('Проверка образа…'));
+    report(100,t('Проверка образа…'),'validate');
     try{const finish=await api.post('update/session/finish',undefined,{...headers,'X-OTA-Upload':String(upload)});await consume(finish.ticket,'committed',file.size)}
     catch(error){const current=await status();if(current.commandTicket&&current.commandTicket!=='0')await consume(current.commandTicket,'committed',file.size);else if(!['committed','reboot_pending'].includes(current.state))throw error}
     const final=await status();if(!['committed','reboot_pending'].includes(final.state)||final.received!==file.size)throw new Error(t('Установка образа не подтверждена'));committed=true;
     const before=await api.get('system/summary');if(!Number.isFinite(before.uptimeSeconds))throw new Error(t('Не удалось проверить перезапуск'));
-    progress(100,t('Перезапуск ESP…'));try{await api.post('system/restart',{})}catch(_){}
+    report(100,t('Перезапуск ESP…'),'restart');try{await api.post('system/restart',{})}catch(_){}
     const deadline=Date.now()+60000;let restarted=false;
     while(Date.now()<deadline){await wait(1500);try{const current=await api.get('system/summary');if(Number.isFinite(current.uptimeSeconds)&&current.uptimeSeconds<before.uptimeSeconds){restarted=true;break}}catch(_){}}
     if(!restarted)throw new Error(t('Образ записан, перезапуск не подтверждён'));
-    progress(100,t('ESP перезапущена · проверка загрузки'));
-  }catch(error){progress(confirmed,committed?t('Образ записан. ')+error.message:error.message);if(!committed&&upload)try{await api.post('update/session/cancel',undefined,{...headers,'X-OTA-Upload':String(upload)})}catch(_){}throw error}
+    report(100,t('ESP перезапущена · проверка загрузки'),'complete');
+  }catch(error){report(confirmed,committed?t('Образ записан. ')+error.message:error.message,'error');if(!committed&&upload)try{await api.post('update/session/cancel',undefined,{...headers,'X-OTA-Upload':String(upload)})}catch(_){}throw error}
 }

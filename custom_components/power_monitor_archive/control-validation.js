@@ -1,5 +1,5 @@
 /* UI validation mirrors firmware bounds; server validation remains authoritative. */
-import {t} from './i18n.js?v=1.0.213';
+import {t} from './i18n.js?v=1.0.220';
 const fail=message=>{throw new Error(t(message))};
 const bytes=value=>new TextEncoder().encode(String(value??'')).length;
 export function validateUtf8(value,limit){if(bytes(value)>limit)fail('Текст превышает допустимую длину')}

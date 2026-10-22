@@ -514,6 +514,14 @@
                   }
                 }
               ]
+            },
+            {
+              "type": "custom:power-monitor-forecast-card",
+              "device": "__PM_DEVICE__",
+              "show_city": false,
+              "show_period": false,
+              "show_units": false,
+              "show_note": false
             }
           ]
         },
@@ -744,7 +752,7 @@
       "path": "diagnostics",
       "icon": "mdi:battery-heart-variant",
       "type": "sections",
-      "max_columns": 2,
+      "max_columns": 3,
       "sections": [
         {
           "type": "grid",
@@ -2559,6 +2567,131 @@
                               }
                             ]
                           }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "vertical-stack",
+              "cards": [
+                {
+                  "type": "custom:mushroom-title-card",
+                  "title": "Инвертор"
+                },
+                {
+                  "type": "custom:button-card",
+                  "template": "status",
+                  "entity": "__PM_inverter_available__",
+                  "name": "Инвертор",
+                  "icon": "mdi:solar-power"
+                },
+                {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "entity": "__PM_inverter_available__",
+                      "state": "on"
+                    }
+                  ],
+                  "card": {
+                    "type": "grid",
+                    "columns": 2,
+                    "square": false,
+                    "cards": [
+                      {
+                        "type": "custom:button-card",
+                        "template": "metric",
+                        "entity": "__PM_inverter_temperature__",
+                        "name": "Температура инвертора",
+                        "icon": "mdi:thermometer",
+                        "variables": {
+                          "accent": "#f06275",
+                          "max_value": 100
+                        }
+                      },
+                      {
+                        "type": "custom:button-card",
+                        "template": "metric",
+                        "entity": "__PM_load_percent__",
+                        "name": "Загрузка инвертора",
+                        "icon": "mdi:gauge",
+                        "variables": {
+                          "accent": "#ffb52e",
+                          "max_value": 100
+                        }
+                      },
+                      {
+                        "type": "custom:button-card",
+                        "template": "metric",
+                        "entity": "__PM_grid_voltage__",
+                        "name": "Напряжение сети",
+                        "icon": "mdi:transmission-tower",
+                        "variables": {
+                          "accent": "#42a5f5",
+                          "max_value": 260
+                        }
+                      },
+                      {
+                        "type": "custom:button-card",
+                        "template": "metric",
+                        "entity": "__PM_grid_frequency__",
+                        "name": "Частота сети",
+                        "icon": "mdi:sine-wave",
+                        "variables": {
+                          "accent": "#26c6da",
+                          "max_value": 60
+                        }
+                      },
+                      {
+                        "type": "custom:button-card",
+                        "template": "metric",
+                        "entity": "__PM_output_voltage__",
+                        "name": "Выходное напряжение",
+                        "icon": "mdi:power-plug",
+                        "variables": {
+                          "accent": "#42a5f5",
+                          "max_value": 260
+                        }
+                      },
+                      {
+                        "type": "custom:button-card",
+                        "template": "metric",
+                        "entity": "__PM_output_frequency__",
+                        "name": "Выходная частота",
+                        "icon": "mdi:sine-wave",
+                        "variables": {
+                          "accent": "#26c6da",
+                          "max_value": 60
+                        }
+                      },
+                      {
+                        "type": "custom:button-card",
+                        "template": "metric",
+                        "entity": "__PM_pv_voltage__",
+                        "name": "Напряжение PV",
+                        "icon": "mdi:solar-power",
+                        "variables": {
+                          "accent": "#ffb52e",
+                          "max_value": 500
+                        }
+                      },
+                      {
+                        "type": "custom:button-card",
+                        "template": "metric",
+                        "entity": "__PM_pv_current__",
+                        "name": "Ток PV",
+                        "icon": "mdi:current-dc",
+                        "variables": {
+                          "accent": "#ffb52e",
+                          "max_value": 30
                         }
                       }
                     ]

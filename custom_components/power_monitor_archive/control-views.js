@@ -1,10 +1,10 @@
-import {validateSettings,validateRelay,validateTariff,validateTelegram} from './control-validation.js?v=1.0.213';
-import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.213';
-import {el,icon,button,errorText,eventTime,eventStamp,eventMeta,searchCities,sameValue,verifyPatch,layoutFields,telegramSettingsPatch} from './control-ui.js?v=1.0.213';
-import {RELAY_GROUPS,RELAY_KEYS,TARIFF_GROUPS,SETTINGS_GROUPS,TELEGRAM_GROUPS,MQTT_FIELDS,REASONS,INVERTER_PROFILES,PROTOCOL_LABELS,EVENT_LABELS,SEVERITY_LABELS,LOGGER_PHASES,DELIVERY_LABELS,pick} from './control-schema.js?v=1.0.213';
-import {wait} from './control-api.js?v=1.0.213';
-import {updateFirmware} from './control-ota.js?v=1.0.213';
-import {exportDialog,importSettings} from './control-backup.js?v=1.0.213';
+import {validateSettings,validateRelay,validateTariff,validateTelegram} from './control-validation.js?v=1.0.220';
+import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.220';
+import {el,icon,button,errorText,eventTime,eventStamp,eventMeta,searchCities,sameValue,verifyPatch,layoutFields,telegramSettingsPatch,mqttStatus,archiveStatus} from './control-ui.js?v=1.0.220';
+import {RELAY_GROUPS,RELAY_KEYS,TARIFF_GROUPS,SETTINGS_GROUPS,TELEGRAM_GROUPS,MQTT_FIELDS,REASONS,INVERTER_PROFILES,PROTOCOL_LABELS,EVENT_LABELS,SEVERITY_LABELS,LOGGER_PHASES,DELIVERY_LABELS,pick} from './control-schema.js?v=1.0.220';
+import {wait} from './control-api.js?v=1.0.220';
+import {updateFirmware,softwareImageVersion} from './control-ota.js?v=1.0.220';
+import {exportDialog,importSettings} from './control-backup.js?v=1.0.220';
 const modeOf=r=>r.mode==='manual_on'?'on':r.mode==='manual_off'?'off':r.mode;
 const finite=patch=>!Object.values(patch).some(v=>typeof v==='number'&&!Number.isFinite(v));
 export const RelayViews={
@@ -36,6 +36,7 @@ export const RelayViews={
       for(const r of rs){const c=p.querySelector(`[data-slot="${r.slot}"]`);if(!c)continue;c.dataset.stale=String(stale);c.dataset.on=String(!stale&&r.on);setText(c.querySelector('h2'),()=>r.name||t('Реле ')+(r.slot+1));const tag=c.querySelector('[data-role=relay-state]');setText(tag,()=>stale?'—':r.on?t('Включено'):t('Выключено'));tag.classList.toggle('on',r.on);setText(c.querySelector('[data-role=relay-reason]'),()=>r.externallyControlled?t('Управляется тарифом'):r.transitionPending?t('Переключение…'):t(REASONS[r.reason])||t('Состояние уточняется'));for(const b of c.querySelectorAll('[data-mode]')){b.disabled=stale||!r.enabled||r.externallyControlled||this.busy.has('relay:'+r.slot);b.setAttribute('aria-pressed',String(b.dataset.mode===modeOf(r)))}}
     }
     if(page==='telegram')this.updateTelegramDelivery(p);
+    if(page==='home-assistant')this.updateConnection(p);
     if(page==='events'&&!p.querySelector('[data-updating]'))this.renderEvents(p);
     if(page==='bms')this.updateBms(p);
     if(page==='inverter')this.updateInverter(p);
@@ -87,7 +88,49 @@ export const SettingsViews={
     const grid=el('div','grid');
     for(const [scope,title,fields]of SETTINGS_GROUPS){if(scope==='profile'){grid.append(this.profileCard(settings));continue}if(scope==='forecast'){grid.append(this.forecastCard(settings));continue}const resolved=fields;grid.append(this.formCard(title,resolved,settings,async patch=>{validateSettings(patch);const result=await this.api.post('settings',{...patch,...(['device','forecast'].includes(scope)?{scope}:{})});this.data.settings=await this.api.get('settings');verifyPatch(this.data.settings,Object.fromEntries(Object.entries(patch).filter(([k])=>!['wifiPassword','adminPassword','accessPointPassword','forecastApiKey','forecastServerToken'].includes(k))));return result},{glyph:{device:'mdi:chip',profile:'mdi:solar-power',network:'mdi:wifi',security:'mdi:lock-outline',forecast:'mdi:weather-sunny'}[scope],wide:scope==='forecast',actions:scope==='network'?[button(()=>(t('Найти сети')),()=>this.scanWifi(),'button','mdi:magnify')]:[]}))}
     const service=this.card(t('Система'),'mdi:cog-outline',true),a=el('div','actions');a.append(button(()=>(t('Резервная копия')),()=>exportDialog(this),'button','mdi:download'),button(()=>(t('Восстановить')),()=>importSettings(this),'button','mdi:upload'),button(()=>(t('Диагностика')),()=>this.diagnosticsDialog(),'button','mdi:chip'),button(()=>(t('Перезапустить')),()=>this.confirm(t('Перезапустить ESP?'),t('Связь с устройством временно прервётся.'),()=>this.act('restart',()=>this.api.post('system/restart',{}),t('Перезапуск запрошен'))),'button','mdi:restart'));service.append(a);
-    const fw=el('details');fw.append(el('summary',null,()=>(t('Обновление прошивки'))));const file=el('input','file');file.type='file';file.accept='.bin';file.setAttribute('aria-label',t('Файл прошивки'));const progress=el('progress');progress.max=100;progress.value=0;progress.hidden=true;const status=el('div','muted');const upload=button(()=>(t('Установить прошивку')),()=>{if(!file.files?.[0]){this.notify(new Error(t('Выберите файл .bin')),true);return}this.confirm(t('Обновить прошивку?'),t('Не отключайте питание до завершения обновления.'),()=>this.act('firmware',async()=>{this._updatingFirmware=true;upload.disabled=true;progress.hidden=false;try{await updateFirmware(this.api,file.files[0],(pct,message)=>{progress.value=pct;setText(status,()=>message)})}finally{this._updatingFirmware=false;upload.disabled=false}},t('Прошивка установлена')))},'button primary');const actions=el('div','actions');actions.append(upload);fw.append(file,actions,progress,status);service.append(fw);grid.append(service);p.append(grid);
+    grid.append(service,this.softwareUpdateCard());p.append(grid);
+  },
+  softwareUpdateCard(){
+    const card=this.card(t('Обновление ПО'),'mdi:chip',true);card.classList.add('firmware-card');
+    card.append(el('p','firmware-description',()=>t('Выберите файл ПО .bin для вашей платы. Во время обновления не отключайте питание.')));
+    const versionBlock=label=>{const block=el('div','software-version');block.append(el('span',null,()=>label),el('strong',null,()=>'—'));return block};
+    const versions=el('div','software-versions'),current=versionBlock(t('Текущая версия')),candidate=versionBlock(t('Версия в файле'));versions.append(current,candidate);
+    this.api.get('system').then(data=>{if(card.isConnected)setText(current.lastChild,()=>data.firmwareVersion||'—')}).catch(()=>{});
+    const file=el('input');file.type='file';file.accept='.bin';file.hidden=true;file.setAttribute('aria-label',t('Файл ПО'));
+    const label=el('div','field firmware-file'),chooser=el('div','software-file-choice'),identity=el('div','software-file-identity'),filename=el('strong',null,()=>t('Файл не выбран')),fileInfo=el('span','muted',()=>t('Файл ПО .bin'));identity.append(filename,fileInfo);
+    const choose=button(()=>t('Выбрать файл'),()=>file.click(),'button','mdi:folder-open-outline'),clear=button(()=>t('Убрать'),()=>{file.value='';file.onchange()},'button');clear.hidden=true;
+    chooser.append(icon('mdi:file-code-outline'),identity,choose,clear);label.append(el('span',null,()=>t('Файл ПО')),chooser,file);
+    const transfer=el('div','software-progress');transfer.hidden=true;
+    const stage=el('div','software-progress-heading'),stageText=el('strong',null,()=>t('Подготовка…')),percent=el('strong',null,()=>'0%');stage.append(stageText,percent);
+    const progress=el('progress');progress.max=100;progress.value=0;
+    const metrics=el('div','software-metrics'),sent=el('span'),speed=el('span'),remaining=el('span');metrics.append(sent,speed,remaining);transfer.append(stage,progress,metrics);
+    const status=el('div','firmware-status');status.setAttribute('role','status');let selection=0,selectedFile=null;
+    const upload=button(()=>t('Обновить'),()=>{
+      const image=selectedFile;if(!image||image!==file.files?.[0])return;
+      this.confirm(t('Обновить ПО?'),t('Не отключайте питание до завершения обновления.'),()=>this.act('firmware',async()=>{
+        this._updatingFirmware=true;upload.disabled=true;file.disabled=true;choose.disabled=true;clear.disabled=true;transfer.hidden=false;setText(status,()=>'');
+        try{await updateFirmware(this.api,image,(pct,message,info)=>{
+          progress.value=pct;setText(percent,()=>pct+'%');setText(stageText,()=>info?.stage==='upload'?t('Передача ПО'):message);
+          if(!info){setText(status,()=>message);return}
+          const elapsed=info.elapsedMs/1000,rate=elapsed>0?info.received/elapsed:0,eta=rate>0?Math.ceil((info.total-info.received)/rate):null;
+          setText(sent,()=>t('Передано')+' '+(info.received/1048576).toLocaleString(locale(),{maximumFractionDigits:2})+' / '+(info.total/1048576).toLocaleString(locale(),{maximumFractionDigits:2})+' '+t('МБ'));
+          setText(speed,()=>t('Скорость')+': '+(rate/1024).toLocaleString(locale(),{maximumFractionDigits:1})+' '+t('КБ/с'));
+          setText(remaining,()=>info.stage==='upload'?t('Осталось')+': '+(eta===null?'—':Math.floor(eta/60)+':'+String(eta%60).padStart(2,'0')):'');
+        })}finally{this._updatingFirmware=false;upload.disabled=!selectedFile;file.disabled=false;choose.disabled=false;clear.disabled=false}
+      },t('ПО обновлено')));
+    },'button primary');upload.disabled=true;
+    file.onchange=async()=>{
+      const own=++selection,image=file.files?.[0];selectedFile=null;upload.disabled=true;transfer.hidden=true;progress.value=0;clear.hidden=!image;chooser.dataset.selected=String(!!image);
+      setText(filename,()=>image?.name||t('Файл не выбран'));setText(fileInfo,()=>image?(image.size/1048576).toLocaleString(locale(),{maximumFractionDigits:2})+' '+t('МБ') :t('Файл ПО .bin'));
+      setText(candidate.lastChild,()=>image?t('Чтение…'):'—');setText(status,()=>'');if(!image)return;
+      try{
+        const version=await softwareImageVersion(image);if(own!==selection||!card.isConnected)return;
+        setText(candidate.lastChild,()=>version||t('Не определена'));
+        setText(status,()=>version?'':t('В файле нет доступной информации о версии.'));
+        selectedFile=image;upload.disabled=false;
+      }catch(error){if(own!==selection||!card.isConnected)return;setText(candidate.lastChild,()=>'—');setText(status,()=>errorText(error))}
+    };
+    const actions=el('div','actions');actions.append(upload);card.append(versions,label,actions,transfer,status);return card;
   },
   scanWifi(){
     this.modal(t('Сети Wi-Fi'),d=>{
@@ -145,10 +188,16 @@ export const IntegrationViews={
     const entries=(data.log||[]).slice(0,30);if(entries.length){const history=el('details');history.append(el('summary',null,()=>(t('Последние сообщения'))));const log=el('div','log');for(const e of entries){const row=el('div','log-item');row.append(el('time',null,()=>(e.timestamp?new Date(e.timestamp*1000).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'}):'—')),el('span',null,()=>(e.text||e.chatId),true),el('span','tag',()=>(DELIVERY_LABELS[e.status]||t('Статус уточняется'))));log.append(row)}history.open=wasOpen;history.append(log);journal.append(history)}else if(!Number(data.queueSize)){setText(queue.firstChild,()=>t('Сообщений пока нет'));queue.querySelector('strong').hidden=true}
   },
   renderConnection(p){
-    const archive=this.data.archive,mqtt=this.data['home-assistant/settings'],grid=el('div','grid'),native=this.card('Home Assistant','mdi:home-assistant');this.stateRow(native,t('Устройство'),this._device.name,true);this.stateRow(native,t('Доступ'),archive?.enabled&&archive?.paired?t('Разрешён'):t('Нет доступа'));this.stateRow(native,t('История'),t('Архив HA'));const local=el('a','button',()=>(t('Открыть ESP')));local.href=this._device.localUrl;local.target='_blank';local.rel='noopener';const a=el('div','actions');a.append(local);native.append(a);grid.append(native);
+    const archive=this.data.archive,mqtt=this.data['home-assistant/settings'],grid=el('div','grid'),native=this.card('Home Assistant','mdi:home-assistant');this.stateRow(native,t('Устройство'),this._device.name,true);this.stateRow(native,t('Доступ'),archiveStatus(archive,this.data['archive:error']).label).lastChild.dataset.connectionStatus='native';this.stateRow(native,t('История'),t('Архив HA'));const local=el('a','button',()=>(t('Открыть ESP')));local.href=this._device.localUrl;local.target='_blank';local.rel='noopener';const a=el('div','actions');a.append(local);native.append(a);grid.append(native);
     grid.append(this.formCard(t('Основной интерфейс'),[{key:'mode',label:t('Открывать pm.local в'),type:'select',options:[['ha','Home Assistant'],['esp',t('На ESP')]]}],{mode:archive?.interfaceUrl?'ha':'esp'},patch=>this._hass.callWS({type:'power_monitor_archive/query',action:'interface',device:this._device.deviceId,url:patch.mode==='ha'?window.location.origin+'/power-monitor?device='+this._device.deviceId:''}),{glyph:'mdi:monitor-dashboard'}));
-    if(mqtt){const c=this.card('MQTT','mdi:connection',true),details=el('details');details.style.marginTop='0';details.style.borderTop='0';details.append(el('summary',null,()=>(mqtt.enabled?t('Включён'):t('Выключен'))));details.append(this.formCard(t('Брокер'),MQTT_FIELDS,mqtt,async patch=>{const result=await this.api.post('home-assistant/settings',patch);this.data['home-assistant/settings']=await this.api.get('home-assistant/settings');verifyPatch(this.data['home-assistant/settings'],Object.fromEntries(Object.entries(patch).filter(([k])=>k!=='password')));return result},{actions:[button(()=>(t('Повторить подключение')),()=>this.run('mqtt-retry',()=>this.api.post('home-assistant/retry',{}),t('Подключение запрошено')))]}));c.append(details);grid.append(c)}
-    const access=this.card(t('Доступ'),'mdi:shield-key-outline',true),advanced=el('details');advanced.style.margin='0';advanced.style.border='0';advanced.append(el('summary',null,()=>(t('Привязка интеграции'))));const actions=el('div','actions');actions.append(button(()=>(t('Новый код')),()=>this.run('pair-code',async()=>{const result=await this.api.post('archive',undefined,{'X-Archive-Command':'begin'});this.modal(t('Код подключения'),d=>{const input=el('input','file');input.value=result.pairingCode;input.readOnly=true;input.setAttribute('aria-label',t('Код подключения'));const a=el('div','actions');a.append(button(()=>(t('Скопировать')),async()=>{try{await navigator.clipboard.writeText(input.value);this.notify(t('Код скопирован'))}catch(_){input.focus();input.select()}},'button primary'));d.append(input,el('p','muted',()=>(t('Действует 2 минуты'))),a)})},''),'button','mdi:key-outline'),button(()=>(t('Отозвать доступ')),()=>this.confirm(t('Отозвать доступ HA?'),t('Управление из HA прекратится. Для подключения потребуется новый код с ESP. Архив сохранится.'),()=>this.act('revoke',async()=>{const current=await this.api.get('archive');await this.api.post('archive',{revision:current.revision},{'X-Archive-Command':'revoke'})},t('Отзыв запрошен'))),'button danger'));advanced.append(actions);access.append(advanced);grid.append(access);p.append(grid);
+    const disclosure=(title,description,glyph,key)=>{const details=el('details','card wide integration-disclosure'),summary=el('summary'),identity=el('span','integration-identity'),status=el('span','tag');identity.append(el('strong',null,()=>title),el('span','muted',()=>description));status.dataset.connectionStatus=key;status.setAttribute('role','status');summary.append(icon(glyph),identity,status);details.append(summary);const body=el('div','integration-body');details.append(body);grid.append(details);return body};
+    const mqttBody=disclosure('MQTT',t('Дополнительное подключение через брокер'),'mdi:connection','mqtt');
+    if(mqtt){mqttBody.append(this.formCard(t('Брокер'),MQTT_FIELDS,mqtt,async patch=>{const result=await this.api.post('home-assistant/settings',patch);this.data['home-assistant/settings']=await this.api.get('home-assistant/settings');this.data['home-assistant/settings:error']=null;verifyPatch(this.data['home-assistant/settings'],Object.fromEntries(Object.entries(patch).filter(([k])=>k!=='password')));this.updateConnection(p);return result},{actions:[button(()=>(t('Повторить подключение')),()=>this.run('mqtt-retry',async()=>{await this.api.post('home-assistant/retry',{});this.data['home-assistant/settings']=await this.api.get('home-assistant/settings');this.data['home-assistant/settings:error']=null;this.updateConnection(p)},t('Подключение запрошено')))]}))}else mqttBody.append(this.empty(t('Нет свежих данных')));
+    const advanced=disclosure(t('Доступ интеграции'),t('Подключение по коду и отзыв доступа Home Assistant'),'mdi:shield-key-outline','archive');const actions=el('div','actions');actions.append(button(()=>(t('Новый код')),()=>this.run('pair-code',async()=>{const result=await this.api.post('archive',undefined,{'X-Archive-Command':'begin'});this.modal(t('Код подключения'),d=>{const input=el('input','file');input.value=result.pairingCode;input.readOnly=true;input.setAttribute('aria-label',t('Код подключения'));const a=el('div','actions');a.append(button(()=>(t('Скопировать')),async()=>{try{await navigator.clipboard.writeText(input.value);this.notify(t('Код скопирован'))}catch(_){input.focus();input.select()}},'button primary'));d.append(input,el('p','muted',()=>(t('Действует 2 минуты'))),a)})},''),'button','mdi:key-outline'),button(()=>(t('Отозвать доступ')),()=>this.confirm(t('Отозвать доступ HA?'),t('Управление из HA прекратится. Для подключения потребуется новый код с ESP. Архив сохранится.'),()=>this.act('revoke',async()=>{const current=await this.api.get('archive');await this.api.post('archive',{revision:current.revision},{'X-Archive-Command':'revoke'})},t('Отзыв запрошен'))),'button danger'));advanced.append(actions);p.append(grid);this.updateConnection(p);
+  },
+  updateConnection(p){
+    const mqtt=mqttStatus(this.data['home-assistant/settings'],this.data['home-assistant/settings:error']),archive=archiveStatus(this.data.archive,this.data['archive:error']);
+    for(const node of p.querySelectorAll('[data-connection-status]')){const status=node.dataset.connectionStatus==='mqtt'?mqtt:archive;setText(node,()=>status.label);node.classList.toggle('on',status.tone==='online');node.dataset.tone=status.tone}
   },
   renderEvents(p){
     const data=this.data.events;p.replaceChildren();p.dataset.updating='true';

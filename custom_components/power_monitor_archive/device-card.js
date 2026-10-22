@@ -1,10 +1,10 @@
-import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.213';
+import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.220';
 /* Native HA frontend. No embedded firmware document or browser LAN traffic. */
-import {PAGES} from './control-schema.js?v=1.0.213';
-import {DeviceApi} from './control-api.js?v=1.0.213';
-import {RelayViews,SettingsViews,IntegrationViews} from './control-views.js?v=1.0.213';
-import {HardwareViews,inverterSettingsUnsupported} from './control-hardware.js?v=1.0.213';
-import {el,icon,button,fmt,timeValue,errorText,inputNumber,storedNumber,layoutFields} from './control-ui.js?v=1.0.213';
+import {PAGES} from './control-schema.js?v=1.0.220';
+import {DeviceApi} from './control-api.js?v=1.0.220';
+import {RelayViews,SettingsViews,IntegrationViews} from './control-views.js?v=1.0.220';
+import {HardwareViews,inverterSettingsUnsupported} from './control-hardware.js?v=1.0.220';
+import {el,icon,button,fmt,timeValue,errorText,inputNumber,storedNumber,layoutFields} from './control-ui.js?v=1.0.220';
 class PowerMonitorDeviceCard extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this.pages=new Map();this.data={};this.busy=new Set();this.epoch=0;this._page='relays';this._bmsView='bank';this._visibility=()=>{if(!document.hidden)this.refresh()}}
   setConfig(config){
@@ -32,19 +32,19 @@ class PowerMonitorDeviceCard extends HTMLElement {
     finally{if(epoch===this.epoch)this._connecting=false}
   }
   buildShell(){
-    this.shadowRoot.replaceChildren();const style=el('link');style.rel='stylesheet';style.href='/power_monitor_archive/control.css?v=1.0.213';this.shadowRoot.append(style);
+    this.shadowRoot.replaceChildren();const style=el('link');style.rel='stylesheet';style.href='/power_monitor_archive/control.css?v=1.0.220';this.shadowRoot.append(style);
     const shell=el('div','shell'),nav=this.nav=el('nav','navigation');nav.setAttribute('role','tablist');nav.setAttribute('aria-label',t('Управление Power Monitor'));
-    for(const [key,[label,glyph]]of Object.entries(PAGES)){const b=button(()=>(label),()=>this.selectPage(key),'nav',glyph);b.dataset.page=key;b.id='tab-'+key;b.setAttribute('role','tab');b.setAttribute('aria-controls','page-'+key);nav.append(b)}
+    for(const [key,[label,glyph]]of Object.entries(PAGES).filter(([key])=>key!=='events')){const b=button(()=>(label),()=>this.selectPage(key),'nav',glyph);b.dataset.page=key;b.id='tab-'+key;b.setAttribute('role','tab');b.setAttribute('aria-controls','page-'+key);nav.append(b)}
     nav.onkeydown=event=>{const all=[...nav.children],index=all.indexOf(event.target);if(index<0)return;let next;if(event.key==='ArrowRight')next=(index+1)%all.length;if(event.key==='ArrowLeft')next=(index+all.length-1)%all.length;if(event.key==='Home')next=0;if(event.key==='End')next=all.length-1;if(next!==undefined){event.preventDefault();all[next].focus();all[next].click()}};
     const heading=el('div','heading'),left=el('div');left.append(this.titleNode=el('h1',null,()=>(PAGES[this._page][0])));
-    const connection=el('div','connection');this.dotNode=el('span','dot');this.nameNode=el('span','device-name');this.stateNode=el('span',null,()=>(t('Подключение')));connection.append(this.dotNode,this.nameNode,this.stateNode);const languageLabel=el('label','language-select'),languageIcon=icon('mdi:translate'),languageSelect=this._languageSelect=el('select');bindAttribute(languageSelect,'aria-label','Язык интерфейса');for(const [value,label]of [['auto','Язык Home Assistant'],['ru','Русский'],['uk','Українська'],['en','English']]){const option=el('option',null,()=>label);option.value=value;languageSelect.append(option)}languageSelect.value=languagePreference();languageSelect.onchange=()=>setLanguage(languageSelect.value);languageLabel.append(languageIcon,languageSelect);heading.append(left,connection,languageLabel);
-    this.content=el('div');shell.append(nav,heading,this.content);this.shadowRoot.append(shell);this.toast=el('div','toast');this.toast.hidden=true;this.toast.setAttribute('role','status');this.shadowRoot.append(this.toast);
+    const connection=el('div','connection');this.dotNode=el('span','dot');this.nameNode=el('span','device-name');this.stateNode=el('span',null,()=>(t('Подключение')));connection.append(this.dotNode,this.nameNode,this.stateNode);const languageLabel=el('label','language-select'),languageIcon=icon('mdi:translate'),languageSelect=this._languageSelect=el('select');bindAttribute(languageSelect,'aria-label','Язык интерфейса');for(const [value,label]of [['auto','Язык Home Assistant'],['ru','Русский'],['uk','Українська'],['en','English']]){const option=el('option',null,()=>label);option.value=value;languageSelect.append(option)}languageSelect.value=languagePreference();languageSelect.onchange=()=>setLanguage(languageSelect.value);languageLabel.append(languageIcon,languageSelect);heading.append(left,languageLabel);
+    this.content=el('div');nav.hidden=!!this._config.hide_navigation;shell.append(nav,heading,this.content);this.shadowRoot.append(shell);this.toast=el('div','toast');this.toast.hidden=true;this.toast.setAttribute('role','status');this.shadowRoot.append(this.toast);
   }
   selectPage(page,load=true){
     if(!PAGES[page])return;this._page=page;setText(this.titleNode,()=>t(PAGES[this._page][0]));
     for(const b of this.nav.children){const active=b.dataset.page===page;b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1}
     for(const [key,p]of this.pages)p.hidden=key!==page;
-    let p=this.pages.get(page);if(!p){p=el('section','page');p.id='page-'+page;p.setAttribute('role','tabpanel');p.setAttribute('aria-labelledby','tab-'+page);p.append(el('div','loader'));this.pages.set(page,p);this.content.append(p)}
+    let p=this.pages.get(page);if(!p){p=el('section','page');p.id='page-'+page;p.setAttribute('role','tabpanel');if(page==='events'||this._config.hide_navigation)bindAttribute(p,'aria-label',()=>PAGES[page][0]);else p.setAttribute('aria-labelledby','tab-'+page);p.append(el('div','loader'));this.pages.set(page,p);this.content.append(p)}
     p.hidden=false;p.classList.remove('entering');void p.offsetWidth;p.classList.add('entering');if(load&&this.api)this.refresh();
   }
   async refresh(liveOnly=false){

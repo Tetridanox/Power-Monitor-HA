@@ -6,7 +6,7 @@ import sqlite3
 import logging
 
 import voluptuous as vol
-from homeassistant.components import frontend, panel_custom, websocket_api, persistent_notification
+from homeassistant.components import frontend as ha_frontend, panel_custom, websocket_api, persistent_notification
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.lovelace import LOVELACE_DATA
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
@@ -48,6 +48,12 @@ async def _register_card_resource(resources):
         resources.data.append({"url": url, "type": "module"})
 
 
+def _register_dashboard_bootstrap(hass):
+    # Importing our .frontend submodule sets this package's `frontend` attribute.
+    # Keep HA's frontend under a distinct name in the package namespace.
+    ha_frontend.add_extra_js_url(hass, '/power_monitor_archive/dashboard-bootstrap.js?v=' + VERSION)
+
+
 async def async_setup(hass, config):
     state = hass.data.setdefault(DOMAIN, {})
     if "app" in state:
@@ -85,7 +91,7 @@ async def async_setup(hass, config):
         "/power_monitor_archive/brand.svg", str(Path(__file__).with_name("brand.svg")), True)])
     await hass.http.async_register_static_paths([
         StaticPathConfig('/power_monitor_archive/' + name, str(Path(__file__).with_name(name)), False)
-        for name in ('dashboard-setup.js', 'control-schema.js', 'control-api.js', 'control-views.js',
+        for name in ('forecast-card.js', 'dashboard-setup.js', 'dashboard-bootstrap.js', 'control-schema.js', 'control-api.js', 'control-views.js',
                      'i18n.js', 'i18n-messages.js', 'control-validation.js', 'control-hardware.js', 'control-backup.js', 'control-ota.js', 'control-ui.js', 'control.css', 'inverter-catalog.js')
     ])
     websocket_api.async_register_command(hass, websocket_archive)
@@ -97,6 +103,7 @@ async def async_setup(hass, config):
         logging.getLogger(__name__).warning('Frontend resources not ready: %s', type(error).__name__)
         persistent_notification.async_create(hass, 'Power Monitor could not download its dashboard cards. Restore Internet access and reload the integration.', title='Power Monitor', notification_id=DOMAIN+'_frontend')
     await _register_card_resource(hass.data[LOVELACE_DATA].resources)
+    _register_dashboard_bootstrap(hass)
     await panel_custom.async_register_panel(hass, frontend_url_path=PANEL,
         webcomponent_name="power-monitor-panel", sidebar_title=None if any(e.options.get("dashboardPath") for e in hass.config_entries.async_entries(DOMAIN)) else "Power Monitor",
         sidebar_icon="mdi:flash", module_url="/power_monitor_archive/panel.js?v=" + VERSION,
@@ -186,9 +193,9 @@ async def websocket_archive(hass, connection, msg):
             for item in app.devices:
                 if item["deviceId"] == device:
                     item["dashboardPath"] = path
-        panel = hass.data.get(frontend.DATA_PANELS, {}).get(PANEL)
+        panel = hass.data.get(ha_frontend.DATA_PANELS, {}).get(PANEL)
         if panel:
-            frontend.async_register_built_in_panel(hass, panel.component_name,
+            ha_frontend.async_register_built_in_panel(hass, panel.component_name,
                 frontend_url_path=PANEL, config=panel.config, require_admin=True,
                 update=True, show_in_sidebar=False)
         connection.send_result(msg["id"], {"saved": True, "dashboardPath": path}); return

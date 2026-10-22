@@ -1,7 +1,7 @@
-import {technical,locale} from './i18n.js?v=1.0.213';
-import CATALOG from './inverter-catalog.js?v=1.0.213';
+import {technical,locale} from './i18n.js?v=1.0.220';
+import CATALOG from './inverter-catalog.js?v=1.0.220';
 /* Device field contracts. Presentation is owned entirely by the HA frontend. */
-export const PAGES={relays:['Реле','mdi:electric-switch'],inverter:['Инвертор','mdi:solar-power'],bms:['Батарея','mdi:battery-medium'],settings:['Настройки','mdi:tune'],telegram:['Telegram','mdi:send'],'home-assistant':['Подключение','mdi:home-assistant'],events:['События','mdi:history']};
+export const PAGES={relays:['Реле','mdi:electric-switch'],inverter:['Инвертор','mdi:solar-power'],bms:['Батарея','mdi:battery-medium'],settings:['Настройки','mdi:tune'],telegram:['Telegram','mdi:send'],'home-assistant':['Home Assistant','mdi:home-assistant'],events:['События','mdi:history']};
 const f=(key,label,type='number',extra={})=>({key,label,type,...extra});
 export const RELAY_GROUPS=[
  ['Канал',[f('name','Название','text',{maxLength:32}),f('enabled','Использовать канал','switch'),f('activeLow','Включение низким уровнем','switch'),f('priority','Приоритет','number',{min:0,max:255})]],

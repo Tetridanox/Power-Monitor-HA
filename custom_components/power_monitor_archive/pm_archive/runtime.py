@@ -88,6 +88,7 @@ class Application:
         self.devices = list(config.get("devices", []))
         self.lock = threading.Lock()
         self.stop = threading.Event()
+        self.work_ready = threading.Event()
         self.resume = set()
         self.states = {}
         self.writer_error = None
@@ -123,6 +124,7 @@ class Application:
                        'signature': (paired['generation'], paired['address'], paired['token']),
                        'deadline': time.monotonic() + 10, 'done': threading.Event()}
             self.device_commands.append(command)
+            self.work_ready.set()
         if not command['done'].wait(40):
             raise ArchiveError('device result not confirmed')
         result = command.get('result')
@@ -181,6 +183,7 @@ class Application:
             if not any(d["deviceId"] == device for d in self.devices):
                 raise ArchiveError("unknown device")
             self.interface_command = command
+            self.work_ready.set()
         if not command["done"].wait(40):
             raise ArchiveError("result not confirmed; refresh before another action")
         if isinstance(command["result"], Exception):
@@ -291,12 +294,21 @@ class Application:
                                 self.states[device] = {"deviceId": device, "generation": sync.generation, **sync.status}
                     self._interface_pass(syncs)
                     self._device_pass(syncs)
-                    self.stop.wait(0.2)
+                    self._wait_for_work()
             finally:
                 store.close()
         except Exception as error:
             with self.lock:
                 self.writer_error = type(error).__name__
+
+    def _wait_for_work(self):
+        # Clear then check the queue under its lock. A producer either leaves
+        # queued work visible here or sets the event after the check; no lost wake.
+        self.work_ready.clear()
+        with self.lock:
+            pending = bool(self.device_commands) or self.interface_command is not None
+        if not pending and not self.stop.is_set():
+            self.work_ready.wait(0.2)
 
     def status(self):
         with self.lock:

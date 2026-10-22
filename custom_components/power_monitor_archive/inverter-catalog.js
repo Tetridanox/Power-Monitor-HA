@@ -30,8 +30,8 @@ const window={};
                 id: "easun-smh3-rwb1",
                 label: "SMH3 · Solar Plug-RWB1 (WiFi)",
                 protocol: "solarv_smh3",
-                interfaceName: "wifi_tcp",
-                tcpPort: 1883,
+                interfaceName: "wifi",
+                tcpPort: 58899,
                 baudRate: 2400,
                 modbusAddress: 5
             }]
@@ -65,8 +65,8 @@ const window={};
                 id: "anern-evo3200-rwb1",
                 label: "AN-SCI-EVO-3200 · Solar Plug-RWB1 (WiFi)",
                 protocol: "solarv_anern",
-                interfaceName: "wifi_tcp",
-                tcpPort: 1883,
+                interfaceName: "wifi",
+                tcpPort: 58899,
                 baudRate: 2400,
                 modbusAddress: 5
             }]

@@ -1,4 +1,4 @@
-import {t,isApplicationMessage,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.213';
+import {t,isApplicationMessage,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.220';
 /* Small native DOM primitives; never render device-provided HTML. */
 export const el=(tag,cls,text,raw=false)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)setText(n,text,!raw);return n};
 export const icon=name=>{const n=el('ha-icon');n.setAttribute('icon',name);return n};
@@ -60,3 +60,18 @@ export async function searchCities(query,signal){
 Object.assign(errors,{'Invalid BMS password':'Неверный пароль BMS'});
 
 export const inverterInputValue=value=>String(value!==null&&value!==''&&Number.isFinite(Number(value))?Number(value):value??'');
+
+// Runtime connectivity is distinct from the saved enable flag. Never show stale success.
+export function mqttStatus(data,error){
+ if(error||!data)return {label:t('Нет свежих данных'),tone:'warning'};
+ if(!data.enabled)return {label:t('Выключен'),tone:'neutral'};
+ if(data.runtime?.connected===true)return {label:t('Подключено'),tone:'online'};
+ if(data.configured===false||data.runtime?.configured===false)return {label:t('Не настроен'),tone:'warning'};
+ if(data.runtime?.lastError)return {label:t('Ошибка подключения'),tone:'error'};
+ return {label:t('Нет связи с брокером'),tone:'warning'};
+}
+export function archiveStatus(data,error){
+ if(error||!data)return {label:t('Нет свежих данных'),tone:'warning'};
+ if(!data.enabled)return {label:t('Доступ отключён'),tone:'neutral'};
+ return data.paired?{label:t('Интеграция привязана'),tone:'online'}:{label:t('Не привязана'),tone:'warning'};
+}
