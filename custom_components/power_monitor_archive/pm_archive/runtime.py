@@ -16,7 +16,11 @@ from .sync import Source, Synchronizer
 
 def device_cache_seconds(path):
     # Live snapshots are shared across viewers; configuration keeps its slower cache.
-    return 1 if path.split('?', 1)[0] in ('/api/telemetry', '/api/bms', '/api/relays') else 5
+    return 1 if path.split('?', 1)[0] in ('/api/telemetry', '/api/bms', '/api/relays', '/api/system', '/api/archive') else 5
+
+
+def pairing_signature(paired):
+    return paired['generation'], paired['address'], paired['token']
 
 
 def live_retry_seconds(failures, error):
@@ -100,6 +104,19 @@ class Application:
         self.device_cache = {}
         self.ota_quiet_until = 0
 
+    def _require_binding(self, device, signature, permission):
+        """Caller holds lock; never hold it over source I/O."""
+        paired = next((d for d in self.devices if d['deviceId'] == device), None)
+        if (self.stop.is_set() or not paired or not paired.get(permission) or
+                pairing_signature(paired) != signature):
+            raise ArchiveError('device pairing changed or permission removed')
+
+    def _command_guard(self, command, permission):
+        with self.lock:
+            self._require_binding(command['device'], command['signature'], permission)
+            if time.monotonic() > command['deadline']:
+                raise ArchiveError('device command expired')
+
     def device_request(self, device, request):
         with self.lock:
             paired = next((dict(d) for d in self.devices if d['deviceId'] == device), None)
@@ -109,11 +126,12 @@ class Application:
         if history is not None:
             return history
         path, headers, body = validate_request(request)
-        key = (device, path, tuple(sorted((k.lower(), v) for k, v in headers.items())))
         with self.lock:
             paired = next((d for d in self.devices if d['deviceId'] == device), None)
             if not paired or not paired.get('deviceControl'):
                 return json_response({'error': 'device_pairing_required'}, 403)
+            signature = pairing_signature(paired)
+            key = (device, signature, path, tuple(sorted((k.lower(), v) for k, v in headers.items())))
             if request['method'] == 'GET' and key in self.device_cache:
                 until, result = self.device_cache[key]
                 if time.monotonic() < until:
@@ -121,7 +139,7 @@ class Application:
             if self.stop.is_set() or self.writer_error or len(self.device_commands) >= 8:
                 return json_response({'error': 'device_busy'}, 503)
             command = {'device': device, 'request': request, 'key': key,
-                       'signature': (paired['generation'], paired['address'], paired['token']),
+                       'signature': signature,
                        'deadline': time.monotonic() + 10, 'done': threading.Event()}
             self.device_commands.append(command)
             self.work_ready.set()
@@ -130,6 +148,8 @@ class Application:
         result = command.get('result')
         if isinstance(result, Exception) or result is None:
             raise ArchiveError('device request failed; refresh before retrying a write')
+        with self.lock:
+            self._require_binding(device, command['signature'], 'deviceControl')
         return result
 
     def _device_pass(self, syncs):
@@ -138,14 +158,10 @@ class Application:
                 return
             command = self.device_commands.popleft()
             device = command['device']
-            paired = next((d for d in self.devices if d['deviceId'] == device), None)
         try:
-            if not paired or not paired.get('deviceControl') or time.monotonic() > command['deadline'] or self.stop.is_set():
-                raise ArchiveError('device command expired or permission removed')
-            if command['signature'] != (paired['generation'], paired['address'], paired['token']):
-                raise ArchiveError('device pairing changed')
+            self._command_guard(command, 'deviceControl')
             sync = syncs[device]
-            if sync.stopped:
+            if sync.stopped or command['signature'] != (sync.generation, sync.source.address, sync.source._token):
                 raise ArchiveError('device access stopped')
             request, key = command['request'], command['key']
             if request['path'].startswith('/api/update/session'):
@@ -155,8 +171,9 @@ class Application:
             if request['method'] == 'GET' and cached and cached[0] > time.monotonic():
                 result = cached[1]
             else:
-                result = execute_device(sync.source, request)
+                result = execute_device(sync.source, request, guard=lambda: self._command_guard(command, 'deviceControl'))
             with self.lock:
+                self._require_binding(device, command['signature'], 'deviceControl')
                 # Writes never retry. Invalidate reads even after an error:
                 # command admission is not proof that a durable save failed.
                 if request['method'] == 'POST':
@@ -180,14 +197,20 @@ class Application:
         with self.lock:
             if self.stop.is_set() or self.writer_error or self.interface_command is not None:
                 raise ArchiveError("interface owner is busy or unavailable")
-            if not any(d["deviceId"] == device for d in self.devices):
+            paired = next((d for d in self.devices if d['deviceId'] == device), None)
+            if not paired:
                 raise ArchiveError("unknown device")
+            if not paired.get('interfaceControl'):
+                raise ArchiveError('interface pairing required')
+            command['signature'] = pairing_signature(paired)
             self.interface_command = command
             self.work_ready.set()
         if not command["done"].wait(40):
             raise ArchiveError("result not confirmed; refresh before another action")
         if isinstance(command["result"], Exception):
             raise ArchiveError("interface save failed; check pairing and ESP connection")
+        with self.lock:
+            self._require_binding(device, command['signature'], 'interfaceControl')
         return command["result"]
 
     def _interface_pass(self, syncs):
@@ -197,17 +220,20 @@ class Application:
             return
         try:
             device = command["device"]
-            if time.monotonic() > command["deadline"] or not self.device_active(device) or self.stop.is_set():
-                raise ArchiveError("interface command expired")
+            guard = lambda: self._command_guard(command, 'interfaceControl')
+            guard()
             sync = syncs[device]
-            if sync.stopped:
+            if sync.stopped or command['signature'] != (sync.generation, sync.source.address, sync.source._token):
                 raise ArchiveError("access is stopped")
             manifest = sync.source.manifest()
             if manifest["deviceId"] != device or manifest["generation"] != sync.generation:
                 raise ArchiveError("device identity changed")
-            command["result"] = sync.source.set_interface(manifest, command["url"])
+            guard()
+            result = sync.source.set_interface(manifest, command["url"], guard=guard)
             with self.lock:
-                self.interface_states[device] = {**self.interface_states.get(device, {}), **command["result"]}
+                self._require_binding(device, command['signature'], 'interfaceControl')
+                command['result'] = result
+                self.interface_states[device] = {**self.interface_states.get(device, {}), **result}
         except Exception as error:
             command["result"] = error
         finally:
@@ -234,7 +260,7 @@ class Application:
                             self.sources.pop(removed, None)
                             self.device_cache = {k: v for k, v in self.device_cache.items() if k[0] != removed}
                     for d in devices:
-                        signature = (d["generation"], d["address"], d["token"])
+                        signature = pairing_signature(d)
                         if signatures.get(d["deviceId"]) != signature:
                             with self.lock:
                                 self.device_cache = {k: v for k, v in self.device_cache.items() if k[0] != d['deviceId']}
@@ -265,6 +291,7 @@ class Application:
                                     raise ArchiveError("device identity changed")
                                 readings = sync.source.live(manifest)
                                 with self.lock:
+                                    self._require_binding(device, signatures[device], 'liveRead')
                                     self.live_states[device] = {"values": readings, "at": time.time(), "available": True}
                                     self.interface_states[device] = {"interfaceUrl": manifest.get("interfaceUrl", ""),
                                         "interfaceSupported": manifest.get("interfaceSupported") is True,
@@ -290,7 +317,7 @@ class Application:
                             cancelled=lambda: self.stop.is_set() or not self.device_active(device))
                         due[device] = time.monotonic() + delay + random.uniform(0, min(5, delay / 10))
                         with self.lock:
-                            if any(d["deviceId"] == device for d in self.devices):
+                            if any(d['deviceId'] == device and pairing_signature(d) == signatures[device] for d in self.devices):
                                 self.states[device] = {"deviceId": device, "generation": sync.generation, **sync.status}
                     self._interface_pass(syncs)
                     self._device_pass(syncs)

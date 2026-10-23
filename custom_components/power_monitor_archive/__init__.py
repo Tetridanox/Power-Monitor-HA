@@ -123,6 +123,9 @@ async def async_setup_entry(hass, entry):
         if len(app.devices) >= 8 and entry.data["deviceId"] not in {d["deviceId"] for d in app.devices}:
             return False
         app.devices = [d for d in app.devices if d["deviceId"] != entry.data["deviceId"]] + [{**entry.data, "dashboardPath": entry.options.get("dashboardPath")}]
+        for cache in (app.states, app.live_states, app.interface_states):
+            cache.pop(entry.data['deviceId'], None)
+        app.device_cache = {k: v for k, v in app.device_cache.items() if k[0] != entry.data['deviceId']}
     state["entries"][entry.entry_id] = entry
     if entry.data.get("liveRead"):
         coordinator=PowerMonitorCoordinator(hass,app,entry.data["deviceId"])
@@ -146,6 +149,9 @@ async def async_unload_entry(hass, entry):
     with state["app"].lock:
         state["app"].devices = [d for d in state["app"].devices if d["deviceId"] != entry.data["deviceId"]]
         state["app"].states.pop(entry.data["deviceId"], None)
+        state['app'].live_states.pop(entry.data['deviceId'], None)
+        state['app'].interface_states.pop(entry.data['deviceId'], None)
+        state['app'].device_cache = {k: v for k, v in state['app'].device_cache.items() if k[0] != entry.data['deviceId']}
     state["entries"].pop(entry.entry_id, None)
     return True
 

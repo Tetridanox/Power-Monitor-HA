@@ -1,6 +1,6 @@
-import {DeviceApi} from './control-api.js?v=1.0.220';
-import {t,locale,setProfileLanguage,watchLanguage} from './i18n.js?v=1.0.220';
-import {el,icon,button} from './control-ui.js?v=1.0.220';
+import {DeviceApi} from './control-api.js?v=1.0.226';
+import {t,locale,setProfileLanguage,watchLanguage} from './i18n.js?v=1.0.226';
+import {el,icon,button} from './control-ui.js?v=1.0.226';
 
 export const forecastPresentation=config=>Object.fromEntries(['show_title','show_city','show_period','show_updated','show_note','show_units','show_refresh'].map(k=>[k,config?.[k]!==false]));
 const TTL=30*60*1000,MAX_BODY=128*1024;

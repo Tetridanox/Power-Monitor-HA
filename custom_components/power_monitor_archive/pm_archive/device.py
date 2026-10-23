@@ -2,9 +2,13 @@
 import base64
 import http.client
 import json
+import logging
 from urllib.parse import urlsplit, parse_qsl
 
 from .store import ArchiveError
+from .transport import connected_http
+
+_LOGGER = logging.getLogger(__name__)
 
 # No destination, arbitrary URL, cookies, credentials or redirects from JS.
 ROUTES = frozenset((
@@ -20,7 +24,7 @@ ROUTES = frozenset((
     'update/session update/session/cancel update/session/data update/session/finish '
     'update/session/result update/session/status dbg/inv-sniff'
 ).split())
-HEADERS = frozenset(('content-type', 'accept', 'x-bms-ticket', 'x-archive-command',
+HEADERS = frozenset(('content-type', 'accept', 'x-bms-ticket', 'x-archive-command', 'x-inverter-token',
     'x-ota-ticket', 'x-ota-upload', 'x-ota-offset', 'x-ota-size', 'x-pm-ota'))
 
 
@@ -58,27 +62,36 @@ def validate_request(request):
     return path, headers, body
 
 
-def execute(source, request):
+def execute(source, request, *, guard=lambda: None):
     path, headers, body = validate_request(request)
-    connection = http.client.HTTPConnection(source.address, 80, timeout=8)
+    ota = path.startswith('/api/update/session')
     source.request_count += 1
+    phase = 'connect'
     try:
-        connection.request(request['method'], path, body=body or None, headers={
-            **headers, 'Authorization': 'Bearer ' + source._token, 'Connection': 'close'})
-        response = connection.getresponse()
-        raw = response.read(65537)
-        source.response_bytes += len(raw)
-        if len(raw) > 65536:
-            raise ArchiveError('device response too large')
-        length = response.getheader('Content-Length')
-        if length is not None and (not length.isdecimal() or int(length) != len(raw)):
-            raise ArchiveError('incomplete device response')
-        # HTTPConnection checks incomplete chunked bodies. Never follow Location.
-        return {'status': response.status, 'body': base64.b64encode(raw).decode(),
-                'headers': {k: v for k, v in response.getheaders()
-                            if k.lower() in ('content-type', 'retry-after')}}
-    finally:
-        connection.close()
+        with connected_http(source.address, _LOGGER, path) as connection:
+            guard()
+            phase = 'send'
+            connection.request(request['method'], path, body=body or None, headers={
+                **headers, 'Authorization': 'Bearer ' + source._token, 'Connection': 'close'})
+            phase = 'response'
+            response = connection.getresponse()
+            raw = response.read(65537)
+            source.response_bytes += len(raw)
+            if len(raw) > 65536:
+                raise ArchiveError('device response too large')
+            length = response.getheader('Content-Length')
+            if length is not None and (not length.isdecimal() or int(length) != len(raw)):
+                raise ArchiveError('incomplete device response')
+            # HTTPConnection checks incomplete chunked bodies. Never follow Location.
+            return {'status': response.status, 'body': base64.b64encode(raw).decode(),
+                    'headers': {k: v for k, v in response.getheaders()
+                                if k.lower() in ('content-type', 'retry-after')}}
+    except (OSError, http.client.HTTPException, ArchiveError) as error:
+        if ota:
+            # Exception text, credentials, headers and image bytes stay private.
+            _LOGGER.warning('OTA HTTP request failed; method=%s path=%s phase=%s error=%s',
+                            request['method'], path, phase, type(error).__name__)
+        raise
 
 
 def json_response(value, status=200):

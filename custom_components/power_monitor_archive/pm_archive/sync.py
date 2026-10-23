@@ -2,12 +2,16 @@
 import http.client
 import ipaddress
 import json
+import logging
 import struct
 import time
 import sqlite3
 from urllib.parse import urlsplit
 
 from .store import ArchiveError, ArchiveStore, Page, _fnv, _hex
+from .transport import connected_http
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class SourceError(ArchiveError):
@@ -42,12 +46,12 @@ class Source:
         self.request_count = 0
         self.response_bytes = 0
 
-    def request(self, headers=None, *, method="GET", body=None, accepted=(200,), maximum=2456):
+    def request(self, headers=None, *, method="GET", body=None, accepted=(200,), maximum=2456, guard=lambda: None):
         if maximum not in (2456, 8192):
             raise ArchiveError("invalid source body bound")
-        connection = http.client.HTTPConnection(self.address, 80, timeout=8)
         self.request_count += 1
-        try:
+        with connected_http(self.address, _LOGGER, '/api/archive') as connection:
+            guard()
             connection.request(method, "/api/archive", body=body, headers={"Authorization": "Bearer " + self._token,
                 "Connection": "close", **(headers or {})})
             response = connection.getresponse()
@@ -60,8 +64,6 @@ class Source:
             if len(raw) > maximum or not length.isdecimal() or int(length) != len(raw) or response.getheader("Transfer-Encoding"):
                 raise ArchiveError("source body not complete and bounded")
             return raw, {name.lower(): value for name, value in response.getheaders()}
-        finally:
-            connection.close()
 
     def manifest(self):
         raw, _ = self.request()
@@ -73,7 +75,7 @@ class Source:
             raise ArchiveError("incompatible source manifest")
         return result
 
-    def set_interface(self, manifest, url):
+    def set_interface(self, manifest, url, *, guard=lambda: None):
         if manifest.get("interfaceControl") is not True:
             raise ArchiveError("fresh pairing is required for interface switching")
         if not isinstance(url, str) or len(url) > 192:
@@ -85,7 +87,7 @@ class Source:
                 raise ArchiveError("invalid panel URL")
         try:
             self.request({"X-Archive-Command": "interface", "Content-Type": "application/json"},
-                         method="POST", body=json.dumps({"revision": manifest["revision"], "url": url}).encode())
+                         method="POST", body=json.dumps({"revision": manifest["revision"], "url": url}).encode(), guard=guard)
         except (OSError, http.client.HTTPException):
             pass  # Ambiguous write: resolve with readback, never repeat POST.
         current = self.manifest()

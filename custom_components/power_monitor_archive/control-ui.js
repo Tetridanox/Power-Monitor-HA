@@ -1,4 +1,4 @@
-import {t,isApplicationMessage,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.220';
+import {t,isApplicationMessage,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.226';
 /* Small native DOM primitives; never render device-provided HTML. */
 export const el=(tag,cls,text,raw=false)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)setText(n,text,!raw);return n};
 export const icon=name=>{const n=el('ha-icon');n.setAttribute('icon',name);return n};
@@ -8,6 +8,12 @@ export function layoutFields(fields,leading=[]){const first=fields.filter(f=>lea
 // are authoritative in HA; a user save opens those gates without changing masks.
 export const telegramSettingsPatch=patch=>({...patch,gridLost:true,gridRestored:true,lowBattery:true,fullBattery:true});
 export const fmt=(value,digits=0)=>value===null||value===undefined||!Number.isFinite(Number(value))?'—':Number(value).toLocaleString(locale(),{maximumFractionDigits:digits,minimumFractionDigits:digits});
+export function formatUptime(seconds){
+ if(typeof seconds!=='number'||!Number.isFinite(seconds)||seconds<0)return '—';
+ const minutes=Math.floor(seconds/60),days=Math.floor(minutes/1440),hours=Math.floor(minutes/60)%24;
+ if(!minutes)return '<1 '+t('мин');
+ return [...(days?[`${days} ${t('дн.')}`]:[]),...(days||hours?[`${hours} ${t('ч')}`]:[]),`${minutes%60} ${t('мин')}`].join(' ');
+}
 export const timeValue=minutes=>`${String(Math.floor((Number(minutes)||0)/60)).padStart(2,'0')}:${String((Number(minutes)||0)%60).padStart(2,'0')}`;
 export const inputNumber=(value,desc={})=>value===null||value===undefined||value===''?'':Number((Number(value)*(desc.scale||1)).toFixed(desc.digits??6));
 export const storedNumber=(value,desc={})=>value===''?NaN:Number(value)/(desc.scale||1);
@@ -58,10 +64,14 @@ export async function searchCities(query,signal){
 }
 
 Object.assign(errors,{'Invalid BMS password':'Неверный пароль BMS'});
+Object.assign(errors,{telegram_restart_required:'Для запуска Telegram перезапустите ESP',telegram_no_recipients:'Нет получателей с разрешением «Сеть восстановлена»','Telegram integration is disabled':'Включите Telegram перед тестом','Telegram bot token is not configured':'Укажите токен бота Telegram','No recipient profiles are configured':'Добавьте получателя Telegram','Telegram queue is full; try again later':'Очередь Telegram заполнена. Повторите позже',retry_not_available:'Повторное подключение MQTT сейчас недоступно'});
 
 export const inverterInputValue=value=>String(value!==null&&value!==''&&Number.isFinite(Number(value))?Number(value):value??'');
 
 // Runtime connectivity is distinct from the saved enable flag. Never show stale success.
+export function mqttRetryAvailable(data,error){
+ return !error&&data?.enabled===true&&data.runtime?.configured===true&&data.runtime?.connected===false&&data.transport?.retrySuppressed===true&&!data.transport.teardownPending&&!data.transport.retryRequested;
+}
 export function mqttStatus(data,error){
  if(error||!data)return {label:t('Нет свежих данных'),tone:'warning'};
  if(!data.enabled)return {label:t('Выключен'),tone:'neutral'};

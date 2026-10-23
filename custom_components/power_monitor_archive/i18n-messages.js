@@ -1,5 +1,27 @@
 /* [Ukrainian, English], keyed by the canonical Russian application message. */
 export const messages={
+"Изменений нет":["Змін немає","No changes"],
+"Для запуска Telegram перезапустите ESP":["Для запуску Telegram перезапустіть ESP","Restart ESP to start Telegram"],
+"Нет получателей с разрешением «Сеть восстановлена»":["Немає отримувачів із дозволом «Мережу відновлено»","No recipients have the Grid restored permission"],
+"Включите Telegram перед тестом":["Увімкніть Telegram перед тестом","Enable Telegram before testing"],
+"Укажите токен бота Telegram":["Вкажіть токен бота Telegram","Enter the Telegram bot token"],
+"Добавьте получателя Telegram":["Додайте отримувача Telegram","Add a Telegram recipient"],
+"Очередь Telegram заполнена. Повторите позже":["Черга Telegram заповнена. Спробуйте пізніше","Telegram queue is full. Try again later"],
+"Повторное подключение MQTT сейчас недоступно":["Повторне підключення MQTT зараз недоступне","MQTT reconnect is currently unavailable"],
+"Время работы":["Час роботи", "Uptime"],
+"дн.":["дн.", "d"],
+"ч":["год", "h"],
+"мин":["хв", "min"],
+"Пароль Wi-Fi пропущен: в файле нет SSID":["Пароль Wi-Fi пропущено: у файлі немає SSID", "Wi-Fi password skipped: the file has no SSID"],
+"SSID и пароль Wi-Fi пропущены: в файле нет пароля":["SSID і пароль Wi-Fi пропущено: у файлі немає пароля", "Wi-Fi SSID and password skipped: the file has no password"],
+"Пустой пароль Wi-Fi пропущен":["Порожній пароль Wi-Fi пропущено", "Empty Wi-Fi password skipped"],
+"Не удалось определить версию образа":["Не вдалося визначити версію образу", "Could not determine the image version"],
+"Привязка устройства изменилась":["Прив’язка пристрою змінилася", "Device pairing changed"],
+"ESP повторно перезапустилась при проверке":["ESP повторно перезапустилася під час перевірки", "ESP restarted again during verification"],
+"Версия после перезапуска не совпала с образом":["Версія після перезапуску не збіглася з образом", "The running version does not match the image"],
+"Проверка стабильной загрузки ESP…":["Перевірка стабільного завантаження ESP…", "Verifying a stable ESP boot…"],
+"Версия и стабильная загрузка подтверждены":["Версію та стабільне завантаження підтверджено", "Version and stable boot confirmed"],
+"Стабильная загрузка ESP не подтверждена":["Стабільне завантаження ESP не підтверджено", "A stable ESP boot was not confirmed"],
 "Файл ПО .bin":["Файл ПЗ .bin", "Software file .bin"],
 "Выбрать файл":["Вибрати файл", "Choose file"],
 "Убрать":["Прибрати", "Remove"],
@@ -770,6 +792,10 @@ export const messages={
  "Датчик 2": [
   "Датчик 2",
   "Sensor 2"
+ ],
+ "Обратное чтение этого параметра не поддерживается": [
+  "Зворотне читання цього параметра не підтримується",
+  "Readback for this parameter is not supported"
  ],
  "Действие не поддерживается": [
   "Дія не підтримується",

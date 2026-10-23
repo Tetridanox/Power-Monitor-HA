@@ -1,5 +1,5 @@
-import {technical,locale} from './i18n.js?v=1.0.220';
-import CATALOG from './inverter-catalog.js?v=1.0.220';
+import {technical,locale} from './i18n.js?v=1.0.226';
+import CATALOG from './inverter-catalog.js?v=1.0.226';
 /* Device field contracts. Presentation is owned entirely by the HA frontend. */
 export const PAGES={relays:['Реле','mdi:electric-switch'],inverter:['Инвертор','mdi:solar-power'],bms:['Батарея','mdi:battery-medium'],settings:['Настройки','mdi:tune'],telegram:['Telegram','mdi:send'],'home-assistant':['Home Assistant','mdi:home-assistant'],events:['События','mdi:history']};
 const f=(key,label,type='number',extra={})=>({key,label,type,...extra});

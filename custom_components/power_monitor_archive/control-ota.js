@@ -1,6 +1,6 @@
-import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.220';
+import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.226';
 /* Ticketed OTA protocol, with read-only reconciliation after an ambiguous POST. */
-import {wait} from './control-api.js?v=1.0.220';
+import {wait} from './control-api.js?v=1.0.226';
 // esp_image_header_t (24) + first segment header (8) + esp_app_desc_t (256).
 // This is a metadata preview, not a replacement for ESP's image validation.
 export async function softwareImageVersion(file){
@@ -14,8 +14,8 @@ export async function softwareImageVersion(file){
   return new TextDecoder().decode(version.subarray(0,end)).trim()||null;
 }
 export async function updateFirmware(api,file,progress){
-  if(!file||file.size<1024||file.size>0x300000)throw new Error(t('Неверный размер образа'));
-  if(new Uint8Array(await file.slice(0,1).arrayBuffer())[0]!==0xe9)throw new Error(t('Это не образ ESP'));
+  const expectedVersion=await softwareImageVersion(file);
+  if(!expectedVersion)throw new Error(t('Не удалось определить версию образа'));
   const headers={'X-PM-OTA':'1'};let upload,committed=false,confirmed=0,received=0;const started=Date.now();
   const report=(pct,message,stage='upload')=>progress(pct,message,{received,total:file.size,elapsedMs:Date.now()-started,stage});
   const status=async()=>{const value=await api.get('update/session/status');if(String(value.upload)!==String(upload))throw new Error(t('Сессия OTA изменилась'));return value};
@@ -27,6 +27,8 @@ export async function updateFirmware(api,file,progress){
     throw new Error(t('Результат OTA не подтверждён'));
   };
   try{
+    const before=await api.get('archive');
+    if(!/^[a-f0-9]{16}$/.test(before.bootEpoch||'')||!/^[a-f0-9]{12}$/.test(before.deviceId||'')||!/^[a-f0-9]{32}$/.test(before.generation||''))throw new Error(t('Не удалось проверить перезапуск'));
     report(0,t('Подготовка…'),'prepare');const begin=await api.post('update/session',undefined,{...headers,'X-OTA-Size':String(file.size)});upload=begin.ticket;
     const initial=await consume(upload,'receiving',0);if(initial.state!=='receiving')throw new Error(t('ESP не начала приём'));
     for(let offset=0;offset<file.size;){
@@ -46,11 +48,26 @@ export async function updateFirmware(api,file,progress){
     try{const finish=await api.post('update/session/finish',undefined,{...headers,'X-OTA-Upload':String(upload)});await consume(finish.ticket,'committed',file.size)}
     catch(error){const current=await status();if(current.commandTicket&&current.commandTicket!=='0')await consume(current.commandTicket,'committed',file.size);else if(!['committed','reboot_pending'].includes(current.state))throw error}
     const final=await status();if(!['committed','reboot_pending'].includes(final.state)||final.received!==file.size)throw new Error(t('Установка образа не подтверждена'));committed=true;
-    const before=await api.get('system/summary');if(!Number.isFinite(before.uptimeSeconds))throw new Error(t('Не удалось проверить перезапуск'));
     report(100,t('Перезапуск ESP…'),'restart');try{await api.post('system/restart',{})}catch(_){}
-    const deadline=Date.now()+60000;let restarted=false;
-    while(Date.now()<deadline){await wait(1500);try{const current=await api.get('system/summary');if(Number.isFinite(current.uptimeSeconds)&&current.uptimeSeconds<before.uptimeSeconds){restarted=true;break}}catch(_){}}
-    if(!restarted)throw new Error(t('Образ записан, перезапуск не подтверждён'));
-    report(100,t('ESP перезапущена · проверка загрузки'),'complete');
+    const bootDeadline=Date.now()+60000;let epoch,healthDeadline;
+    while(Date.now()<(healthDeadline||bootDeadline)){
+      await wait(1500);
+      let current,manifest;
+      try{manifest=await api.get('archive');current=await api.get('system')}catch(_){continue}
+      if(manifest.deviceId!==before.deviceId||manifest.generation!==before.generation)throw new Error(t('Привязка устройства изменилась'));
+      if(!/^[a-f0-9]{16}$/.test(manifest.bootEpoch||'')||manifest.bootEpoch===before.bootEpoch)continue;
+      if(epoch&&epoch!==manifest.bootEpoch)throw new Error(t('ESP повторно перезапустилась при проверке'));
+      if(!epoch){epoch=manifest.bootEpoch;healthDeadline=Date.now()+420000}
+      if(current.firmwareVersion!==expectedVersion)throw new Error(t('Версия после перезапуска не совпала с образом'));
+      report(100,t('Проверка стабильной загрузки ESP…'),'health');
+      const health=current.otaHealth,owners=current.ownerProgress;
+      if(health?.partitionState==='valid'&&health.pending===false&&health.blockingMask===0&&
+          Number.isFinite(health.requiredHealthyMs)&&health.requiredHealthyMs>=60000&&
+          Number.isFinite(health.healthyForMs)&&health.healthyForMs>=health.requiredHealthyMs&&
+          owners?.missingMask===0&&owners.recoveryMask===0){
+        report(100,t('Версия и стабильная загрузка подтверждены'),'complete');return;
+      }
+    }
+    throw new Error(epoch?t('Стабильная загрузка ESP не подтверждена'):t('Образ записан, перезапуск не подтверждён'));
   }catch(error){report(confirmed,committed?t('Образ записан. ')+error.message:error.message,'error');if(!committed&&upload)try{await api.post('update/session/cancel',undefined,{...headers,'X-OTA-Upload':String(upload)})}catch(_){}throw error}
 }

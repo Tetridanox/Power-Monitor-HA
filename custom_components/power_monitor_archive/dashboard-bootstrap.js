@@ -1,5 +1,5 @@
 // Provision from any HA page, including Settings, before Lovelace loads cards.
-import {autoProvisionDashboards} from './dashboard-setup.js?v=1.0.220';
+import {autoProvisionDashboards} from './dashboard-setup.js?v=1.0.226';
 const start=()=>autoProvisionDashboards();
 window.addEventListener('location-changed',start);
 window.addEventListener('focus',start);

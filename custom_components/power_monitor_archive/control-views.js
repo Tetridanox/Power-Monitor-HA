@@ -1,10 +1,10 @@
-import {validateSettings,validateRelay,validateTariff,validateTelegram} from './control-validation.js?v=1.0.220';
-import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.220';
-import {el,icon,button,errorText,eventTime,eventStamp,eventMeta,searchCities,sameValue,verifyPatch,layoutFields,telegramSettingsPatch,mqttStatus,archiveStatus} from './control-ui.js?v=1.0.220';
-import {RELAY_GROUPS,RELAY_KEYS,TARIFF_GROUPS,SETTINGS_GROUPS,TELEGRAM_GROUPS,MQTT_FIELDS,REASONS,INVERTER_PROFILES,PROTOCOL_LABELS,EVENT_LABELS,SEVERITY_LABELS,LOGGER_PHASES,DELIVERY_LABELS,pick} from './control-schema.js?v=1.0.220';
-import {wait} from './control-api.js?v=1.0.220';
-import {updateFirmware,softwareImageVersion} from './control-ota.js?v=1.0.220';
-import {exportDialog,importSettings} from './control-backup.js?v=1.0.220';
+import {validateSettings,validateRelay,validateTariff,validateTelegram} from './control-validation.js?v=1.0.226';
+import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.226';
+import {el,icon,button,errorText,eventTime,eventStamp,eventMeta,searchCities,sameValue,verifyPatch,layoutFields,telegramSettingsPatch,mqttStatus,mqttRetryAvailable,archiveStatus,formatUptime} from './control-ui.js?v=1.0.226';
+import {RELAY_GROUPS,RELAY_KEYS,TARIFF_GROUPS,SETTINGS_GROUPS,TELEGRAM_GROUPS,MQTT_FIELDS,REASONS,INVERTER_PROFILES,PROTOCOL_LABELS,EVENT_LABELS,SEVERITY_LABELS,LOGGER_PHASES,DELIVERY_LABELS,pick} from './control-schema.js?v=1.0.226';
+import {wait} from './control-api.js?v=1.0.226';
+import {updateFirmware,softwareImageVersion} from './control-ota.js?v=1.0.226';
+import {exportDialog,importSettings} from './control-backup.js?v=1.0.226';
 const modeOf=r=>r.mode==='manual_on'?'on':r.mode==='manual_off'?'off':r.mode;
 const finite=patch=>!Object.values(patch).some(v=>typeof v==='number'&&!Number.isFinite(v));
 export const RelayViews={
@@ -43,7 +43,7 @@ export const RelayViews={
   }
 };
 export const SettingsViews={
-  diagnosticsDialog(){this.modal(t('Система ESP'),d=>{const content=el('div');content.append(this.empty(t('Чтение…')));d.append(content);this.api.get('system').then(data=>{if(!d.open)return;content.replaceChildren();for(const [label,value]of [[t('Версия'),data.firmwareVersion],[t('Время работы, с'),data.uptimeSeconds],[t('Свободная память, КБ'),Math.round(data.freeHeapBytes/1024)],[t('Минимум памяти, КБ'),Math.round(data.minimumFreeHeapBytes/1024)]])this.stateRow(content,label,value);const detail=el('details');detail.append(el('summary',null,()=>(t('Диагностика'))),el('pre',null,()=>(JSON.stringify(data,null,2))));content.append(detail);const actions=el('div','actions');actions.append(button(()=>(t('Очистить журнал сбоев')),()=>this.confirm(t('Очистить журнал сбоев?'),t('Сохранённые сведения о сбоях будут удалены.'),()=>this.act('crash-clear',()=>this.api.post('system/crash-journal/clear',{}),t('Журнал очищен'))),'button danger'));content.append(actions)}).catch(error=>{content.replaceChildren(this.empty(errorText(error)))})})},
+  diagnosticsDialog(){this.modal(t('Система ESP'),d=>{const content=el('div');content.append(this.empty(t('Чтение…')));d.append(content);this.api.get('system').then(data=>{if(!d.open)return;content.replaceChildren();for(const [label,value]of [[t('Версия'),data.firmwareVersion],[t('Время работы'),()=>formatUptime(data.uptimeSeconds)],[t('Свободная память, КБ'),Math.round(data.freeHeapBytes/1024)],[t('Минимум памяти, КБ'),Math.round(data.minimumFreeHeapBytes/1024)]])this.stateRow(content,label,value);const detail=el('details');detail.append(el('summary',null,()=>(t('Диагностика'))),el('pre',null,()=>(JSON.stringify(data,null,2))));content.append(detail);const actions=el('div','actions');actions.append(button(()=>(t('Очистить журнал сбоев')),()=>this.confirm(t('Очистить журнал сбоев?'),t('Сохранённые сведения о сбоях будут удалены.'),()=>this.act('crash-clear',()=>this.api.post('system/crash-journal/clear',{}),t('Журнал очищен'))),'button danger'));content.append(actions)}).catch(error=>{content.replaceChildren(this.empty(errorText(error)))})})},
   profileCard(settings){
     const card=this.card(t('Инвертор'),'mdi:solar-power'),draft={...settings},patch={};card.classList.add('form-card');
     const match=INVERTER_PROFILES.find(([, ,profile])=>profile.inverterProtocol===settings.inverterProtocol&&profile.inverterInterface===settings.inverterInterface);
@@ -117,7 +117,7 @@ export const SettingsViews={
           setText(speed,()=>t('Скорость')+': '+(rate/1024).toLocaleString(locale(),{maximumFractionDigits:1})+' '+t('КБ/с'));
           setText(remaining,()=>info.stage==='upload'?t('Осталось')+': '+(eta===null?'—':Math.floor(eta/60)+':'+String(eta%60).padStart(2,'0')):'');
         })}finally{this._updatingFirmware=false;upload.disabled=!selectedFile;file.disabled=false;choose.disabled=false;clear.disabled=false}
-      },t('ПО обновлено')));
+      },t('ПО обновлено')),{closeOnConfirm:true});
     },'button primary');upload.disabled=true;
     file.onchange=async()=>{
       const own=++selection,image=file.files?.[0];selectedFile=null;upload.disabled=true;transfer.hidden=true;progress.value=0;clear.hidden=!image;chooser.dataset.selected=String(!!image);
@@ -192,10 +192,25 @@ export const IntegrationViews={
     grid.append(this.formCard(t('Основной интерфейс'),[{key:'mode',label:t('Открывать pm.local в'),type:'select',options:[['ha','Home Assistant'],['esp',t('На ESP')]]}],{mode:archive?.interfaceUrl?'ha':'esp'},patch=>this._hass.callWS({type:'power_monitor_archive/query',action:'interface',device:this._device.deviceId,url:patch.mode==='ha'?window.location.origin+'/power-monitor?device='+this._device.deviceId:''}),{glyph:'mdi:monitor-dashboard'}));
     const disclosure=(title,description,glyph,key)=>{const details=el('details','card wide integration-disclosure'),summary=el('summary'),identity=el('span','integration-identity'),status=el('span','tag');identity.append(el('strong',null,()=>title),el('span','muted',()=>description));status.dataset.connectionStatus=key;status.setAttribute('role','status');summary.append(icon(glyph),identity,status);details.append(summary);const body=el('div','integration-body');details.append(body);grid.append(details);return body};
     const mqttBody=disclosure('MQTT',t('Дополнительное подключение через брокер'),'mdi:connection','mqtt');
-    if(mqtt){mqttBody.append(this.formCard(t('Брокер'),MQTT_FIELDS,mqtt,async patch=>{const result=await this.api.post('home-assistant/settings',patch);this.data['home-assistant/settings']=await this.api.get('home-assistant/settings');this.data['home-assistant/settings:error']=null;verifyPatch(this.data['home-assistant/settings'],Object.fromEntries(Object.entries(patch).filter(([k])=>k!=='password')));this.updateConnection(p);return result},{actions:[button(()=>(t('Повторить подключение')),()=>this.run('mqtt-retry',async()=>{await this.api.post('home-assistant/retry',{});this.data['home-assistant/settings']=await this.api.get('home-assistant/settings');this.data['home-assistant/settings:error']=null;this.updateConnection(p)},t('Подключение запрошено')))]}))}else mqttBody.append(this.empty(t('Нет свежих данных')));
+    if(mqtt){mqttBody.append(this.formCard(t('Брокер'),MQTT_FIELDS,mqtt,async patch=>{const result=await this.saveMqtt(patch);this.updateConnection(p);return result},{actions:[button(()=>(t('Повторить подключение')),()=>this.run('mqtt-retry',async()=>{await this.retryMqtt();this.updateConnection(p)},t('Подключение запрошено')),'button mqtt-retry')]}))}else mqttBody.append(this.empty(t('Нет свежих данных')));
     const advanced=disclosure(t('Доступ интеграции'),t('Подключение по коду и отзыв доступа Home Assistant'),'mdi:shield-key-outline','archive');const actions=el('div','actions');actions.append(button(()=>(t('Новый код')),()=>this.run('pair-code',async()=>{const result=await this.api.post('archive',undefined,{'X-Archive-Command':'begin'});this.modal(t('Код подключения'),d=>{const input=el('input','file');input.value=result.pairingCode;input.readOnly=true;input.setAttribute('aria-label',t('Код подключения'));const a=el('div','actions');a.append(button(()=>(t('Скопировать')),async()=>{try{await navigator.clipboard.writeText(input.value);this.notify(t('Код скопирован'))}catch(_){input.focus();input.select()}},'button primary'));d.append(input,el('p','muted',()=>(t('Действует 2 минуты'))),a)})},''),'button','mdi:key-outline'),button(()=>(t('Отозвать доступ')),()=>this.confirm(t('Отозвать доступ HA?'),t('Управление из HA прекратится. Для подключения потребуется новый код с ESP. Архив сохранится.'),()=>this.act('revoke',async()=>{const current=await this.api.get('archive');await this.api.post('archive',{revision:current.revision},{'X-Archive-Command':'revoke'})},t('Отзыв запрошен'))),'button danger'));advanced.append(actions);p.append(grid);this.updateConnection(p);
   },
+  async retryMqtt(){
+    await this.api.post('home-assistant/retry');
+    this.data['home-assistant/settings']=await this.api.get('home-assistant/settings');
+    this.data['home-assistant/settings:error']=null;
+  },
+  async saveMqtt(patch){
+    const current=await this.api.get('home-assistant/settings');
+    const body={enabled:current.enabled,port:current.port,...patch};
+    const result=await this.api.post('home-assistant/settings',body);
+    this.data['home-assistant/settings']=await this.api.get('home-assistant/settings');
+    this.data['home-assistant/settings:error']=null;
+    verifyPatch(this.data['home-assistant/settings'],Object.fromEntries(Object.entries(body).filter(([k])=>k!=='password')));
+    return result;
+  },
   updateConnection(p){
+    const retry=p.querySelector('.mqtt-retry');if(retry)retry.disabled=!mqttRetryAvailable(this.data['home-assistant/settings'],this.data['home-assistant/settings:error']);
     const mqtt=mqttStatus(this.data['home-assistant/settings'],this.data['home-assistant/settings:error']),archive=archiveStatus(this.data.archive,this.data['archive:error']);
     for(const node of p.querySelectorAll('[data-connection-status]')){const status=node.dataset.connectionStatus==='mqtt'?mqtt:archive;setText(node,()=>status.label);node.classList.toggle('on',status.tone==='online');node.dataset.tone=status.tone}
   },

@@ -1,7 +1,7 @@
-import {ensureDashboard} from './dashboard-setup.js?v=1.0.220';
-import {t,technical,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.220';
+import {ensureDashboard} from './dashboard-setup.js?v=1.0.226';
+import {t,technical,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.226';
 /* Native HA panel. All data travels over the authenticated HA connection. */
-import './dashboard.js?v=1.0.220';
+import './dashboard.js?v=1.0.226';
 const PM_SERIES=[
   {id:'load',name:'Потребление',color:'#57b5f5'},
   {id:'grid',name:'Из сети',color:'#f2b44c'},

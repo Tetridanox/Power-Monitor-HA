@@ -1,10 +1,10 @@
-import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.220';
+import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.226';
 /* Native HA frontend. No embedded firmware document or browser LAN traffic. */
-import {PAGES} from './control-schema.js?v=1.0.220';
-import {DeviceApi} from './control-api.js?v=1.0.220';
-import {RelayViews,SettingsViews,IntegrationViews} from './control-views.js?v=1.0.220';
-import {HardwareViews,inverterSettingsUnsupported} from './control-hardware.js?v=1.0.220';
-import {el,icon,button,fmt,timeValue,errorText,inputNumber,storedNumber,layoutFields} from './control-ui.js?v=1.0.220';
+import {PAGES} from './control-schema.js?v=1.0.226';
+import {DeviceApi} from './control-api.js?v=1.0.226';
+import {RelayViews,SettingsViews,IntegrationViews} from './control-views.js?v=1.0.226';
+import {HardwareViews,inverterSettingsUnsupported} from './control-hardware.js?v=1.0.226';
+import {el,icon,button,fmt,timeValue,errorText,inputNumber,storedNumber,layoutFields} from './control-ui.js?v=1.0.226';
 class PowerMonitorDeviceCard extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this.pages=new Map();this.data={};this.busy=new Set();this.epoch=0;this._page='relays';this._bmsView='bank';this._visibility=()=>{if(!document.hidden)this.refresh()}}
   setConfig(config){
@@ -16,7 +16,7 @@ class PowerMonitorDeviceCard extends HTMLElement {
   set hass(hass){setProfileLanguage(hass.locale?.language||hass.language);this._hass=hass;if(this.api)this.api.hass=hass;this.connect()}
   connectedCallback(){this._languageUnsub?.();this._languageUnsub=watchLanguage(this,()=>{if(this._languageSelect)this._languageSelect.value=languagePreference();const page=this.pages.get(this._page);if(page)this.updateReadings(this._page,page)});document.addEventListener('visibilitychange',this._visibility);this.connect()}
   disconnectedCallback(){this._languageUnsub?.();this._languageUnsub=null;document.removeEventListener('visibilitychange',this._visibility);this.dispose()}
-  dispose(){for(const n of this.shadowRoot.querySelectorAll('[data-pm-cleanup]'))n._cleanup?.();clearInterval(this._timer);clearTimeout(this._toastTimer);this.epoch++;this._started=false;this._connecting=false;this._refreshing=false;this._dialog?.close();this._dialog?.remove();this._dialog=null;this._bmsTokens={};this.pages.clear();this.shadowRoot.replaceChildren();this.api=null}
+  dispose(){for(const n of this.shadowRoot.querySelectorAll('[data-pm-cleanup]'))n._cleanup?.();clearInterval(this._timer);clearTimeout(this._toastTimer);this.epoch++;this._started=false;this._connecting=false;this._refreshing=false;for(const d of this.shadowRoot.querySelectorAll('dialog')){d.close();d.remove()}this._dialog=null;this._bmsTokens={};this.pages.clear();this.shadowRoot.replaceChildren();this.api=null}
   async connect(){
     if(!this.isConnected||!this._hass||!this._config||this._started||this._connecting)return;
     this._connecting=true;const epoch=this.epoch;
@@ -32,7 +32,7 @@ class PowerMonitorDeviceCard extends HTMLElement {
     finally{if(epoch===this.epoch)this._connecting=false}
   }
   buildShell(){
-    this.shadowRoot.replaceChildren();const style=el('link');style.rel='stylesheet';style.href='/power_monitor_archive/control.css?v=1.0.220';this.shadowRoot.append(style);
+    this.shadowRoot.replaceChildren();const style=el('link');style.rel='stylesheet';style.href='/power_monitor_archive/control.css?v=1.0.226';this.shadowRoot.append(style);
     const shell=el('div','shell'),nav=this.nav=el('nav','navigation');nav.setAttribute('role','tablist');nav.setAttribute('aria-label',t('Управление Power Monitor'));
     for(const [key,[label,glyph]]of Object.entries(PAGES).filter(([key])=>key!=='events')){const b=button(()=>(label),()=>this.selectPage(key),'nav',glyph);b.dataset.page=key;b.id='tab-'+key;b.setAttribute('role','tab');b.setAttribute('aria-controls','page-'+key);nav.append(b)}
     nav.onkeydown=event=>{const all=[...nav.children],index=all.indexOf(event.target);if(index<0)return;let next;if(event.key==='ArrowRight')next=(index+1)%all.length;if(event.key==='ArrowLeft')next=(index+all.length-1)%all.length;if(event.key==='Home')next=0;if(event.key==='End')next=all.length-1;if(next!==undefined){event.preventDefault();all[next].focus();all[next].click()}};
@@ -98,9 +98,9 @@ class PowerMonitorDeviceCard extends HTMLElement {
     form.onsubmit=async event=>{event.preventDefault();if(submit.disabled||!form.reportValidity())return;if(Object.values(patch).some(v=>typeof v==='number'&&!Number.isFinite(v))){setText(status,()=>t('Проверьте числовые поля'));return}submit.disabled=true;setText(status,()=>t('Сохранение…'));try{const body=Object.fromEntries(Object.entries(patch).filter(([k,v])=>fields.find(f=>f.key===k)?.type!=='password'||v!==''));const result=await this.act('form:'+title,()=>save(body),'');Object.keys(patch).forEach(k=>delete patch[k]);delete card.dataset.dirty;setText(status,()=>result?.restartRequired?t('Сохранено · нужен перезапуск'):t('Сохранено'));for(const input of form.querySelectorAll('input[type=password]'))input.value=''}catch(_){setText(status,()=>t('Сохранение не подтверждено'));submit.disabled=false}};return card;
   }
   modal(title,build,rawTitle=false){this._dialog?.close();this._dialog?.remove();const d=this._dialog=el('dialog'),h=el('div','heading');h.append(el('h1',null,()=>(title),rawTitle),Object.assign(button(()=>(''),()=>d.close(),'icon-button','mdi:close'),{ariaLabel:t('Закрыть')}));d.append(h);build(d);d.addEventListener('close',()=>{d.remove();if(this._dialog===d)this._dialog=null},{once:true});this.shadowRoot.append(d);d.showModal();return d}
-  async confirm(title,text,action){return new Promise(resolve=>{const d=this.modal(title,dialog=>{dialog.append(el('p','muted',()=>(text)));const actions=el('div','actions');actions.append(button(()=>(t('Отмена')),()=>dialog.close()),button(()=>(t('Подтвердить')),async()=>{const b=actions.lastChild;b.disabled=true;try{await action();dialog.close();resolve(true)}catch(error){b.disabled=false;let message=dialog.querySelector('[data-confirm-error]');if(!message){message=el('p','error');message.dataset.confirmError='true';message.setAttribute('role','alert');dialog.append(message)}setText(message,()=>errorText(error))}},'button primary'));dialog.append(actions)});d.addEventListener('close',()=>resolve(false),{once:true})})}
+  async confirm(title,text,action,{closeOnConfirm=false}={}){return new Promise(resolve=>{const parent=this._dialog;this._dialog=null;const d=this.modal(title,dialog=>{dialog.append(el('p','muted',()=>(text)));const actions=el('div','actions');actions.append(button(()=>(t('Отмена')),()=>dialog.close()),button(()=>(t('Подтвердить')),async()=>{const b=actions.lastChild;if(b.disabled)return;b.disabled=true;if(closeOnConfirm){resolve(true);dialog.close()}try{await action();resolve(true);dialog.close()}catch(error){if(closeOnConfirm){this.notify(error,true);return}b.disabled=false;let message=dialog.querySelector('[data-confirm-error]');if(!message){message=el('p','error');message.dataset.confirmError='true';message.setAttribute('role','alert');dialog.append(message)}setText(message,()=>errorText(error))}},'button primary'));dialog.append(actions)});d.addEventListener('close',()=>{if(parent?.open&&this.isConnected)this._dialog=parent;resolve(false)},{once:true})})}
   modeControl(value,action,disabled=false){const n=el('div','segments');for(const [mode,label]of [['off',t('Выключено')],['auto',t('Авто')],['on',t('Включено')]]){const b=button(()=>(label),async()=>{for(const x of n.children)x.disabled=true;try{await action(mode)}catch(_){}finally{for(const x of n.children)x.disabled=disabled}},'segment');b.dataset.mode=mode;b.setAttribute('aria-pressed',String(value===mode));b.disabled=disabled;n.append(b)}return n}
-  stateRow(parent,label,value,rawValue=false){const r=el('div','state-row');r.append(el('span',null,()=>(label)),el('strong',null,()=>(value===null||value===undefined?'—':String(value)),rawValue));parent.append(r);return r}
+  stateRow(parent,label,value,rawValue=false){const r=el('div','state-row');r.append(el('span',null,()=>(label)),el('strong',null,()=>{const current=typeof value==='function'?value():value;return current===null||current===undefined?'—':String(current)},rawValue));parent.append(r);return r}
   getCardSize(){return 12}
   getGridOptions(){return {columns:12,rows:'auto',min_columns:6}}
   static getStubConfig(){return {device:'auto',page:'relays'}}

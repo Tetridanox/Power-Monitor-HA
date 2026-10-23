@@ -19,7 +19,7 @@ def definitions():
     for key,name in (("pv_energy_today","Солнечная энергия сегодня"),("grid_import_today","Из сети сегодня"),("load_energy_today","Потребление сегодня"),("battery_charge_energy_today","Заряд батареи сегодня"),("battery_discharge_energy_today","Разряд батареи сегодня")):
         add(key,name,"kWh","energy")
     add("remaining_capacity","Оставшаяся ёмкость","Ah",None)
-    add("remaining_energy","Оставшаяся энергия банка","kWh","energy")
+    add("remaining_energy","Оставшаяся энергия банка","kWh","energy_storage")
     add("cell_delta","Разница напряжений ячеек","V","voltage")
     add("cycle_count","Циклы батареи",None,None)
     add("wifi_rssi","Уровень Wi-Fi","dBm","signal_strength")
