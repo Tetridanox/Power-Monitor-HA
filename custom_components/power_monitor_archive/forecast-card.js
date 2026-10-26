@@ -1,6 +1,6 @@
-import {DeviceApi} from './control-api.js?v=1.0.226';
-import {t,locale,setProfileLanguage,watchLanguage} from './i18n.js?v=1.0.226';
-import {el,icon,button} from './control-ui.js?v=1.0.226';
+import {DeviceApi} from './control-api.js?v=1.0.236';
+import {t,locale,setProfileLanguage,watchLanguage} from './i18n.js?v=1.0.236';
+import {el,icon,button} from './control-ui.js?v=1.0.236';
 
 export const forecastPresentation=config=>Object.fromEntries(['show_title','show_city','show_period','show_updated','show_note','show_units','show_refresh'].map(k=>[k,config?.[k]!==false]));
 const TTL=30*60*1000,MAX_BODY=128*1024;
@@ -11,7 +11,7 @@ export function forecastUrl(c){
  if(!['https:','http:'].includes(url.protocol))throw Error('invalid_url');
  const query={latitude:c.forecastLatitude,longitude:c.forecastLongitude,tilt:c.forecastTiltDegrees};
  if(custom)Object.assign(query,{days:7,peak_power_w:c.forecastPeakPowerWatts,azimuth:c.forecastAzimuthDegrees,efficiency:c.forecastEfficiency});
- else Object.assign(query,{hourly:'global_tilted_irradiance',forecast_days:7,timezone:'auto',azimuth:Number(c.forecastAzimuthDegrees)-180,...(c.forecastApiKey?{apikey:c.forecastApiKey}:{})});
+ else Object.assign(query,{hourly:'global_tilted_irradiance',forecast_days:7,timezone:'auto',timeformat:'unixtime',azimuth:Number(c.forecastAzimuthDegrees)-180,...(c.forecastApiKey?{apikey:c.forecastApiKey}:{})});
  for(const [k,v]of Object.entries(query))url.searchParams.set(k,String(v));return url.toString();
 }
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
@@ -22,7 +22,7 @@ export function forecastDays(payload,c){
   if(!Array.isArray(times)||!Array.isArray(values)||times.length!==values.length||times.length>192)throw Error('invalid_forecast');
   const peak=Number(c.forecastPeakPowerWatts),efficiency=Number(c.forecastEfficiency),totals=new Map();
   if(!finite(peak)||peak<0||!finite(efficiency)||efficiency<0||efficiency>1)throw Error('invalid_config');
-  times.forEach((time,i)=>{if(!finite(values[i]))return;const date=String(time).slice(0,10);totals.set(date,(totals.get(date)||0)+Math.max(0,values[i])*peak/1000*efficiency)});
+  times.forEach((time,i)=>{if(!finite(values[i]))return;let date=String(time).slice(0,10);if(typeof time==='number'){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:payload.timezone||'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date((time-1)*1000));const get=k=>parts.find(p=>p.type===k)?.value;date=`${get('year')}-${get('month')}-${get('day')}`}totals.set(date,(totals.get(date)||0)+Math.max(0,values[i])*peak/1000*efficiency)});
   days=[...totals].map(([date,energyWh])=>({date,energyWh}));
  }else days=payload?.days;
  if(!Array.isArray(days)||!days.length)throw Error('empty_forecast');

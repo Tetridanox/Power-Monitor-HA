@@ -1,7 +1,7 @@
-import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.226';
-import {el,button,telegramSettingsPatch,errorText} from './control-ui.js?v=1.0.226';
-import {RELAY_KEYS,TARIFF_GROUPS,SETTINGS_GROUPS,TELEGRAM_GROUPS,MQTT_FIELDS,pick} from './control-schema.js?v=1.0.226';
-import {validateSettings,validateRelay,validateTariff,validateTelegram} from './control-validation.js?v=1.0.226';
+import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.236';
+import {el,button,telegramSettingsPatch,errorText} from './control-ui.js?v=1.0.236';
+import {RELAY_KEYS,TARIFF_GROUPS,SETTINGS_GROUPS,TELEGRAM_GROUPS,MQTT_FIELDS,pick} from './control-schema.js?v=1.0.236';
+import {validateSettings,validateRelay,validateTariff,validateTelegram} from './control-validation.js?v=1.0.236';
 const keys=groups=>groups.flatMap(([,fields])=>fields.map(f=>f.key));
 const sections={relays:'Реле',tariff:'Ночной тариф',tg:'Telegram',ha:'MQTT',profile:'Профиль инвертора',wifi:'Сеть',forecast:'Прогноз PV',bms:'BMS',security:'Пароли доступа'};
 const object=value=>!!value&&typeof value==='object'&&!Array.isArray(value);

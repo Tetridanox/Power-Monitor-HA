@@ -9,9 +9,13 @@ from .device_history import serve as serve_device_history
 import struct
 import threading
 import time
+import base64
+import json
+import http.client
 
 from .store import ArchiveError, ArchiveStore
 from .sync import Source, Synchronizer
+from .analytics import AnalyticsStore, read_battery, cost_settings, minute_cost
 
 
 def device_cache_seconds(path):
@@ -89,6 +93,8 @@ class Application:
         self.data = Path(config["dataDirectory"]).resolve()
         self.data.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.database = self.data / "archive.sqlite"
+        self.analytics_database = self.data / "analytics.sqlite"
+        self.analytics_error = None
         self.devices = list(config.get("devices", []))
         self.lock = threading.Lock()
         self.stop = threading.Event()
@@ -244,8 +250,14 @@ class Application:
     def run_writer(self):
         try:
             store = ArchiveStore(self.database)
+            analytics = None
+            try:
+                analytics = AnalyticsStore(self.analytics_database)
+            except (OSError, sqlite3.Error, ArchiveError) as error:
+                self.analytics_error = type(error).__name__
             try:
                 syncs, due, live_due, signatures, live_failures = {}, {}, {}, {}, {}
+                battery_due = {}
                 while not self.stop.is_set():
                     with self.lock:
                         devices = list(self.devices)
@@ -298,6 +310,9 @@ class Application:
                                         "interfaceControl": manifest.get("interfaceControl") is True}
                                 live_due[device] = time.monotonic() + 1.5
                                 live_failures[device] = 0
+                                if analytics and config.get('deviceControl') and time.monotonic() >= battery_due.get(device,0):
+                                    battery_due[device] = time.monotonic()+300
+                                    self._observe_batteries(analytics,sync,device,signatures[device],readings)
                             except Exception as error:
                                 if getattr(error, "status", None) in (401, 403):
                                     sync.stopped = True
@@ -323,6 +338,8 @@ class Application:
                     self._device_pass(syncs)
                     self._wait_for_work()
             finally:
+                if analytics:
+                    analytics.close()
                 store.close()
         except Exception as error:
             with self.lock:
@@ -359,6 +376,87 @@ class Application:
             values = dict(value.get('values', {}))
             values['remaining_energy'] = remaining_energy_kwh(values)
             return {**value, 'values': values, "available": bool(value.get("available") and time.time() - value.get("at", 0) < 35)}
+
+    def _analytics_guard(self,device,signature):
+        with self.lock:
+            self._require_binding(device,signature,'deviceControl')
+
+    def _observe_batteries(self,analytics,sync,device,signature,readings):
+        # Called only by the existing I/O owner after a successful live pass.
+        # Optional observations must not invalidate live telemetry or delay a
+        # queued control command by opening another slot request.
+        for slot in (0,1):
+            if self.stop.is_set() or self.device_commands or self.interface_command or time.monotonic()<self.ota_quiet_until:
+                break
+            if readings.get(f'bms{slot+1}_available') is not True:
+                continue
+            try:
+                guard=lambda:self._analytics_guard(device,signature)
+                response=execute_device(sync.source,{'method':'GET','path':f'/api/bms?slot={slot}'},guard=guard)
+                guard()
+                if response['status']!=200:
+                    raise ArchiveError('battery observation unavailable')
+                snapshot=json.loads(base64.b64decode(response['body']))
+                analytics.observe(device,sync.generation,slot,time.time(),snapshot)
+                self.analytics_error=None
+            except (OSError,http.client.HTTPException,ValueError,ArchiveError,sqlite3.Error) as error:
+                self.analytics_error=type(error).__name__
+
+    def analytics(self,device,start,end,maximum,slot=0):
+        with self.lock:
+            paired=next((dict(d) for d in self.devices if d['deviceId']==device),None)
+        if not paired:
+            raise ArchiveError('unknown device')
+        result=read_battery(self.analytics_database,device,paired['generation'],slot,start,end,maximum)
+        result['error']=self.analytics_error
+        with self.lock:
+            if not any(d['deviceId']==device and pairing_signature(d)==pairing_signature(paired) for d in self.devices):
+                raise ArchiveError('pairing changed')
+        return result
+
+    def costs(self,device,start,end,maximum):
+        with self.lock:
+            paired=next((dict(d) for d in self.devices if d['deviceId']==device),None)
+        if not paired or not 0 < end-start <= 366*86400 or not 10<=maximum<=2000:
+            raise ArchiveError('invalid cost range')
+        settings=cost_settings(paired.get('costSettings'))
+        result={'settings':settings,'configured':bool(paired.get('costSettings')),'source':'HA archive','estimated':True,'pricePolicy':'Selected prices applied to the entire selected period; not a supplier bill.'}
+        if not self.database.exists():
+            return {**result,'cost':None,'coveredSeconds':0}
+        db=sqlite3.connect(self.database.as_uri()+'?mode=ro',uri=True,timeout=2)
+        try:
+            db.execute('PRAGMA query_only=ON'); db.execute('PRAGMA cache_size=-512')
+            if settings['mode']=='flat':
+                rows=db.execute('''WITH versions AS (
+                    SELECT record_id,SUM(CASE WHEN provisional=0 THEN 1 ELSE 0 END) AS finals,
+                    MAX(CASE WHEN provisional=0 THEN rowid END) AS final_row,
+                    MAX(CASE WHEN provisional=1 THEN rowid END) AS provisional_row FROM variants
+                    WHERE device=? AND generation=? AND kind='daily' GROUP BY record_id
+                  ) SELECT a.raw FROM variants a JOIN versions v
+                    ON a.rowid=CASE WHEN finals=1 THEN final_row WHEN finals=0 THEN provisional_row END
+                    WHERE a.timestamp>=? AND a.timestamp<=?''',(device,paired['generation'],start,end))
+                grid=pv=0.0;count=0
+                for (raw,) in rows:
+                    if not struct.unpack_from('<I',raw,48)[0]:continue
+                    solar,imported=struct.unpack_from('<2f',raw,8)
+                    if not all(math.isfinite(v) and v>=0 for v in (solar,imported)):continue
+                    grid+=imported/1000;pv+=solar/1000;count+=1
+                totals={'gridKwh':grid if count else None,'pvKwh':pv if count else None,
+                        'cost':grid*settings['dayPrice'] if count else None,
+                        'pvValueEstimate':pv*settings['dayPrice'] if count else None,'recordedDays':count,
+                        'coverage':'Available daily totals only; PV value is not measured savings.'}
+            else:
+                rows=db.execute('''SELECT timestamp,raw FROM variants WHERE device=? AND generation=? AND kind='minute'
+                    AND timestamp>=? AND timestamp<=? GROUP BY record_id HAVING COUNT(*)=1 ORDER BY timestamp''',
+                    (device,paired['generation'],max(0,start-120),end))
+                totals=minute_cost(rows,settings,start,end)
+                totals['coverage']='Only observed minute intervals; gaps and missing old minute data are not estimated.'
+            with self.lock:
+                if not any(d['deviceId']==device and pairing_signature(d)==pairing_signature(paired) for d in self.devices):
+                    raise ArchiveError('pairing changed')
+            return {**result,**totals}
+        finally:
+            db.close()
 
     def coverage(self, device):
         paired = next((d for d in self.devices if d["deviceId"] == device), None)

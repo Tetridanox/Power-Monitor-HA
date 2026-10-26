@@ -1,6 +1,6 @@
-import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.226';
+import {t,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.236';
 /* Ticketed OTA protocol, with read-only reconciliation after an ambiguous POST. */
-import {wait} from './control-api.js?v=1.0.226';
+import {wait} from './control-api.js?v=1.0.236';
 // esp_image_header_t (24) + first segment header (8) + esp_app_desc_t (256).
 // This is a metadata preview, not a replacement for ESP's image validation.
 export async function softwareImageVersion(file){

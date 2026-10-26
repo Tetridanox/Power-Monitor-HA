@@ -15,7 +15,7 @@
         "subtext": ""
       },
       "custom_fields": {
-        "content": "[[[\n  const source = entity;\n  const stateVal = source?.state;\n  const rawValue = Number.parseFloat(stateVal);\n  const unit = source?.attributes?.unit_of_measurement;\n  const value = unit === '°F' ? (rawValue - 32) * 5 / 9 : rawValue;\n  const known = Number.isFinite(value);\n  const maximum = Number(variables.max_value) || 100;\n  const width = known ? Math.max(0, Math.min(100, Math.abs(value) / maximum * 100)) : 0;\n  const accent = variables.accent || '#42a5f5';\n  const icon = this._config.icon || source?.attributes?.icon || 'mdi:flash';\n  const name = this._config.name || source?.attributes?.friendly_name || '';\n  let formatted = '—';\n  if (source && known) {\n    if (hass.formatEntityState) {\n      formatted = hass.formatEntityState(source);\n    } else {\n      formatted = `${source.state} ${source.attributes?.unit_of_measurement ?? ''}`;\n    }\n  } else if (source?.state && !['unknown', 'unavailable', 'null'].includes(source.state)) {\n    formatted = `${source.state} ${source.attributes?.unit_of_measurement ?? ''}`;\n  }\n  if (known && unit === 'V') formatted = `${new Intl.NumberFormat('ru', {maximumFractionDigits:3}).format(value)} V`;\n  if (known && (unit === '°F' || unit === '°C')) formatted = `${new Intl.NumberFormat('ru', {maximumFractionDigits:1}).format(value)} °C`;\n  const sub = variables.subtext ? `<div style=\"color:rgba(255,255,255,.52);font-size:11.5px;line-height:1.1;margin-top:2px\">${variables.subtext}</div>` : '';\n  return `\n    <div style=\"display:grid;grid-template-columns:minmax(0,1fr) 50px;grid-template-rows:auto 1fr auto;column-gap:12px;row-gap:7px;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"grid-column:1;grid-row:1;color:rgba(255,255,255,.64);font-size:13px;font-weight:500;line-height:1.2;white-space:normal;overflow-wrap:anywhere\">${name}</div>\n      <div style=\"grid-column:1;grid-row:2;align-self:center\">\n        <div style=\"color:#f7f7f7;font-size:clamp(21px,1.55vw,29px);font-weight:400;line-height:1;letter-spacing:-.6px;white-space:nowrap\">${formatted}</div>\n        ${sub}\n      </div>\n      <div style=\"grid-column:2;grid-row:1/3;align-self:center;justify-self:end;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.06);box-shadow:0 10px 22px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.08)\"><ha-icon icon=\"${icon}\" style=\"width:27px;color:${accent}\"></ha-icon></div>\n      <div style=\"grid-column:1/3;grid-row:3;height:9px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden\"><div style=\"width:${width}%;height:100%;border-radius:99px;background:${accent};box-shadow:0 0 16px ${accent};transition:width .7s ease\"></div></div>\n    </div>`;\n]]]\n"
+        "content": "[[[\n  const source = entity;\n  const stateVal = source?.state;\n  const rawValue = Number.parseFloat(stateVal);\n  const unit = source?.attributes?.unit_of_measurement;\n  const value = unit === '°F' ? (rawValue - 32) * 5 / 9 : rawValue;\n  const known = Number.isFinite(value);\n  const maximum = Number(variables.max_value) || 100;\n  const width = known ? Math.max(0, Math.min(100, Math.abs(value) / maximum * 100)) : 0;\n  const accent = variables.accent || '#42a5f5';\n  const icon = this._config.icon || source?.attributes?.icon || 'mdi:flash';\n  const name = this._config.name || source?.attributes?.friendly_name || '';\n  let formatted = '—';\n  if (source && known) {\n    if (hass.formatEntityState) {\n      formatted = hass.formatEntityState(source);\n    } else {\n      formatted = `${source.state} ${source.attributes?.unit_of_measurement ?? ''}`;\n    }\n  } else if (source?.state && !['unknown', 'unavailable', 'null'].includes(source.state)) {\n    formatted = `${source.state} ${source.attributes?.unit_of_measurement ?? ''}`;\n  }\n  if (known && unit === 'V') formatted = `${new Intl.NumberFormat('ru', {maximumFractionDigits:3}).format(value)} V`;\n  if (known && (unit === '°F' || unit === '°C')) formatted = `${new Intl.NumberFormat('ru', {maximumFractionDigits:1}).format(value)} °C`;\n  if (known && variables.decimals === 0) formatted = new Intl.NumberFormat(hass.language || 'en', {maximumFractionDigits:0}).format(value);\n  const sub = variables.subtext ? `<div style=\"color:color-mix(in srgb,var(--primary-text-color) 52%,transparent);font-size:11.5px;line-height:1.1;margin-top:2px\">${variables.subtext}</div>` : '';\n  return `\n    <div class=\"pm-metric-grid\" style=\"display:grid;grid-template-columns:minmax(0,1fr) 32px;grid-template-rows:auto 1fr auto;column-gap:12px;row-gap:7px;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"grid-column:1;grid-row:1;color:color-mix(in srgb,var(--primary-text-color) 64%,transparent);font-size:13px;font-weight:500;line-height:1.2;white-space:normal;overflow-wrap:normal;word-break:normal\">${name}</div>\n      <div style=\"grid-column:1;grid-row:2;align-self:center\">\n        <div style=\"color:var(--primary-text-color);font-size:clamp(21px,1.55vw,29px);font-weight:400;line-height:1;letter-spacing:-.6px;white-space:nowrap\">${formatted}</div>\n        ${sub}\n      </div>\n      <div class=\"pm-metric-icon\" style=\"grid-column:2;grid-row:1/3;align-self:center;justify-self:end;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--primary-text-color) 6%,transparent);box-shadow:0 1px 4px rgba(0,0,0,.08),inset 0 1px 0 color-mix(in srgb,var(--primary-text-color) 8%,transparent)\"><ha-icon icon=\"${icon}\" style=\"width:27px;color:${accent}\"></ha-icon></div>\n      <div style=\"grid-column:1/-1;grid-row:3;height:9px;border-radius:99px;background:color-mix(in srgb,var(--primary-text-color) 9%,transparent);overflow:hidden\"><div style=\"width:${width}%;height:100%;border-radius:99px;background:${accent};box-shadow:0 0 16px ${accent};transition:width .7s ease\"></div></div>\n    </div>`;\n]]]"
       },
       "styles": {
         "card": [
@@ -26,16 +26,16 @@
             "padding": "16px 17px"
           },
           {
-            "border-radius": "28px"
+            "border-radius": "20px"
           },
           {
-            "border": "1px solid rgba(255,255,255,0.055)"
+            "border": "1px solid color-mix(in srgb,var(--primary-text-color) 6%,transparent)"
           },
           {
-            "background": "linear-gradient(145deg,rgba(45,45,45,0.98),rgba(27,27,27,0.98))"
+            "background": "linear-gradient(145deg,color-mix(in srgb,var(--ha-card-background,var(--card-background-color)) 94%,var(--primary-text-color)),var(--ha-card-background,var(--card-background-color)))"
           },
           {
-            "box-shadow": "0 18px 38px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.055)"
+            "box-shadow": "0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 color-mix(in srgb,var(--primary-text-color) 6%,transparent)"
           },
           {
             "overflow": "hidden"
@@ -68,7 +68,8 @@
             }
           ]
         }
-      }
+      },
+      "extra_styles": "@media (max-width: 420px) { .pm-metric-grid { grid-template-columns: minmax(0,1fr) !important; } .pm-metric-icon { display:none !important; } }"
     },
     "battery_soc": {
       "show_icon": false,
@@ -82,7 +83,7 @@
         "max_value": 100
       },
       "custom_fields": {
-        "content": "[[[\n  const stateVal = entity ? entity.state : undefined;\n  const value = Number.parseFloat(stateVal);\n  const known = Number.isFinite(value);\n  const maximum = Number(variables.max_value) || 100;\n  const width = known ? Math.max(0, Math.min(100, Math.abs(value) / maximum * 100)) : 0;\n  const accent = variables.accent || '#55d6a9';\n  const icon = this._config.icon || entity?.attributes?.icon || 'mdi:battery-high';\n  const name = this._config.name || entity?.attributes?.friendly_name || 'Заряд АКБ (SOC)';\n  const formatted = known ? `${value.toFixed(0)} %` : '—';\n  \n  const pwrState = hass.states['__PM_battery_power__'];\n  const capState = hass.states['__PM_remaining_capacity__'];\n  const voltState = hass.states['__PM_battery_voltage__'];\n  const pwr = pwrState ? Number.parseFloat(pwrState.state) : 0;\n  const cap = capState ? Number.parseFloat(capState.state) : 0;\n  const volt = voltState ? Number.parseFloat(voltState.state) : 51.2;\n  \n  let timeSub = '';\n  if (known && Number.isFinite(pwr) && Number.isFinite(cap) && cap > 0) {\n    if (pwr < -25) {\n      const dischargeWatts = Math.abs(pwr);\n      const remainingWh = cap * (Number.isFinite(volt) && volt > 0 ? volt : 51.2);\n      const hours = remainingWh / dischargeWatts;\n      if (hours > 0 && hours < 200) {\n        const h = Math.floor(hours);\n        const m = Math.round((hours - h) * 60);\n        timeSub = `~${h}ч ${m}мин до разряда`;\n      }\n    } else if (pwr > 25) {\n      const socVal = value > 0 ? value : 50;\n      const neededAh = cap * (100 - socVal) / Math.max(1, socVal);\n      const neededWh = neededAh * (Number.isFinite(volt) && volt > 0 ? volt : 51.2);\n      const hours = neededWh / pwr;\n      if (hours > 0 && hours < 100) {\n        const h = Math.floor(hours);\n        const m = Math.round((hours - h) * 60);\n        timeSub = `~${h}ч ${m}мин до 100%`;\n      }\n    } else {\n      timeSub = 'Буферный режим';\n    }\n  }\n  return `\n    <div style=\"display:grid;grid-template-columns:minmax(0,1fr) 50px;grid-template-rows:auto 1fr auto;column-gap:12px;row-gap:7px;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"grid-column:1;grid-row:1;color:rgba(255,255,255,.64);font-size:13px;font-weight:500;line-height:1.2;white-space:normal;overflow-wrap:anywhere\">${name}</div>\n      <div style=\"grid-column:1;grid-row:2;align-self:center\">\n        <div style=\"color:#f7f7f7;font-size:clamp(21px,1.55vw,29px);font-weight:400;line-height:1;letter-spacing:-.6px;white-space:nowrap\">${formatted}</div>\n        ${timeSub ? `<div style=\"color:${accent};font-size:11.5px;font-weight:500;line-height:1.1;margin-top:3px\">${timeSub}</div>` : ''}\n      </div>\n      <div style=\"grid-column:2;grid-row:1/3;align-self:center;justify-self:end;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.06);box-shadow:0 10px 22px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.08)\"><ha-icon icon=\"${icon}\" style=\"width:27px;color:${accent}\"></ha-icon></div>\n      <div style=\"grid-column:1/3;grid-row:3;height:9px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden\"><div style=\"width:${width}%;height:100%;border-radius:99px;background:${accent};box-shadow:0 0 16px ${accent};transition:width .7s ease\"></div></div>\n    </div>`;\n]]]\n"
+        "content": "[[[\n  const stateVal = entity ? entity.state : undefined;\n  const value = Number.parseFloat(stateVal);\n  const known = Number.isFinite(value);\n  const maximum = Number(variables.max_value) || 100;\n  const width = known ? Math.max(0, Math.min(100, Math.abs(value) / maximum * 100)) : 0;\n  const accent = variables.accent || '#55d6a9';\n  const icon = this._config.icon || entity?.attributes?.icon || 'mdi:battery-high';\n  const name = this._config.name || entity?.attributes?.friendly_name || (globalThis.PowerMonitorTranslate?.(\"Заряд АКБ (SOC)\")??\"Заряд АКБ (SOC)\");\n  const formatted = known ? `${value.toFixed(0)} %` : '—';\n  \n  const pwrState = hass.states['__PM_battery_power__'];\n  const capState = hass.states['__PM_remaining_capacity__'];\n  const voltState = hass.states['__PM_battery_voltage__'];\n  const pwr = pwrState ? Number.parseFloat(pwrState.state) : 0;\n  const cap = capState ? Number.parseFloat(capState.state) : 0;\n  const volt = voltState ? Number.parseFloat(voltState.state) : NaN;\n  \n  let timeSub = '';\n  if (known && Number.isFinite(pwr) && Number.isFinite(cap) && cap > 0 && Number.isFinite(volt) && volt > 0) {\n    if (pwr < -25) {\n      const dischargeWatts = Math.abs(pwr);\n      const remainingWh = cap * (Number.isFinite(volt) && volt > 0 ? volt : 51.2);\n      const hours = remainingWh / dischargeWatts;\n      if (hours > 0 && hours < 200) {\n        const h = Math.floor(hours);\n        const m = Math.round((hours - h) * 60);\n        timeSub = `~${h}${globalThis.PowerMonitorTranslate?.(\"ч\")??\"ч\"} ${m}${globalThis.PowerMonitorTranslate?.(\"мин до разряда\")??\"мин до разряда\"}`;\n      }\n    } else if (pwr > 25) {\n      const socVal = value > 0 ? value : NaN;\n      const neededAh = cap * (100 - socVal) / Math.max(1, socVal);\n      const neededWh = neededAh * (Number.isFinite(volt) && volt > 0 ? volt : 51.2);\n      const hours = neededWh / pwr;\n      if (hours > 0 && hours < 100) {\n        const h = Math.floor(hours);\n        const m = Math.round((hours - h) * 60);\n        timeSub = `~${h}${globalThis.PowerMonitorTranslate?.(\"ч\")??\"ч\"} ${m}${globalThis.PowerMonitorTranslate?.(\"мин до 100%\")??\"мин до 100%\"}`;\n      }\n    } else {\n      timeSub = (globalThis.PowerMonitorTranslate?.(\"Буферный режим\")??\"Буферный режим\");\n    }\n  }\n  return `\n    <div class=\"pm-metric-grid\" style=\"display:grid;grid-template-columns:minmax(0,1fr) 32px;grid-template-rows:auto 1fr auto;column-gap:12px;row-gap:7px;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"grid-column:1;grid-row:1;color:color-mix(in srgb,var(--primary-text-color) 64%,transparent);font-size:13px;font-weight:500;line-height:1.2;white-space:normal;overflow-wrap:normal;word-break:normal\">${name}</div>\n      <div style=\"grid-column:1;grid-row:2;align-self:center\">\n        <div style=\"color:var(--primary-text-color);font-size:clamp(21px,1.55vw,29px);font-weight:400;line-height:1;letter-spacing:-.6px;white-space:nowrap\">${formatted}</div>\n        ${timeSub ? `<div style=\"color:${accent};font-size:11.5px;font-weight:500;line-height:1.1;margin-top:3px\">${timeSub}</div>` : ''}\n      </div>\n      <div class=\"pm-metric-icon\" style=\"grid-column:2;grid-row:1/3;align-self:center;justify-self:end;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--primary-text-color) 6%,transparent);box-shadow:0 1px 4px rgba(0,0,0,.08),inset 0 1px 0 color-mix(in srgb,var(--primary-text-color) 8%,transparent)\"><ha-icon icon=\"${icon}\" style=\"width:27px;color:${accent}\"></ha-icon></div>\n      <div style=\"grid-column:1/-1;grid-row:3;height:9px;border-radius:99px;background:color-mix(in srgb,var(--primary-text-color) 9%,transparent);overflow:hidden\"><div style=\"width:${width}%;height:100%;border-radius:99px;background:${accent};box-shadow:0 0 16px ${accent};transition:width .7s ease\"></div></div>\n    </div>`;\n]]]"
       },
       "styles": {
         "card": [
@@ -93,16 +94,16 @@
             "padding": "16px 17px"
           },
           {
-            "border-radius": "28px"
+            "border-radius": "20px"
           },
           {
-            "border": "1px solid rgba(255,255,255,0.055)"
+            "border": "1px solid color-mix(in srgb,var(--primary-text-color) 6%,transparent)"
           },
           {
-            "background": "linear-gradient(145deg,rgba(45,45,45,0.98),rgba(27,27,27,0.98))"
+            "background": "linear-gradient(145deg,color-mix(in srgb,var(--ha-card-background,var(--card-background-color)) 94%,var(--primary-text-color)),var(--ha-card-background,var(--card-background-color)))"
           },
           {
-            "box-shadow": "0 18px 38px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.055)"
+            "box-shadow": "0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 color-mix(in srgb,var(--primary-text-color) 6%,transparent)"
           },
           {
             "overflow": "hidden"
@@ -135,7 +136,8 @@
             }
           ]
         }
-      }
+      },
+      "extra_styles": "@media (max-width: 420px) { .pm-metric-grid { grid-template-columns: minmax(0,1fr) !important; } .pm-metric-icon { display:none !important; } }"
     },
     "status": {
       "show_icon": false,
@@ -148,7 +150,7 @@
         "accent": "#42a5f5"
       },
       "custom_fields": {
-        "content": "[[[\n  const on = entity?.state === 'on';\n  const accent = entity?.entity_id?.startsWith('binary_sensor.')\n    ? (on ? '#55d6a9' : '#ef6a73')\n    : (variables.accent || '#42a5f5');\n  const icon = this._config.icon || entity?.attributes?.icon || 'mdi:information-outline';\n  const name = this._config.name || entity?.attributes?.friendly_name || '';\n  let formatted = '—';\n  if (entity) {\n    if (hass.formatEntityState) {\n      formatted = hass.formatEntityState(entity);\n    } else {\n      formatted = entity.state ?? '—';\n    }\n  }\n  return `\n    <div style=\"display:grid;grid-template-columns:48px minmax(0,1fr);grid-template-rows:1fr 1fr;column-gap:12px;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"grid-column:1;grid-row:1/3;align-self:center;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.06);box-shadow:inset 0 1px 0 rgba(255,255,255,.07)\"><ha-icon icon=\"${icon}\" style=\"width:25px;color:${accent}\"></ha-icon></div>\n      <div style=\"grid-column:2;grid-row:1;align-self:end;color:rgba(255,255,255,.62);font-size:12px;line-height:1.15;white-space:normal;overflow-wrap:anywhere\">${name}</div>\n      <div style=\"grid-column:2;grid-row:2;align-self:start;color:#f6f6f6;font-size:15px;font-weight:600;line-height:1.2;white-space:normal;overflow-wrap:anywhere\">${formatted}</div>\n    </div>`;\n]]]\n"
+        "content": "[[[\n  const on = entity?.state === 'on';\n  const accent = entity?.entity_id?.startsWith('binary_sensor.')\n    ? (on ? '#55d6a9' : '#ef6a73')\n    : (variables.accent || '#42a5f5');\n  const icon = this._config.icon || entity?.attributes?.icon || 'mdi:information-outline';\n  const name = this._config.name || entity?.attributes?.friendly_name || '';\n  let formatted = '—';\n  if (entity) {\n    if (hass.formatEntityState) {\n      formatted = hass.formatEntityState(entity);\n    } else {\n      formatted = entity.state ?? '—';\n    }\n  }\n  return `\n    <div style=\"display:grid;grid-template-columns:32px minmax(0,1fr);grid-template-rows:1fr 1fr;column-gap:8px;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"grid-column:1;grid-row:1/3;align-self:center;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--primary-text-color) 6%,transparent);box-shadow:inset 0 1px 0 color-mix(in srgb,var(--primary-text-color) 7%,transparent)\"><ha-icon icon=\"${icon}\" style=\"width:20px;color:${accent}\"></ha-icon></div>\n      <div style=\"grid-column:2;grid-row:1;align-self:end;color:color-mix(in srgb,var(--primary-text-color) 62%,transparent);font-size:12px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;word-break:normal\">${name}</div>\n      <div style=\"grid-column:2;grid-row:2;align-self:start;color:var(--primary-text-color);font-size:13px;font-weight:500;line-height:1.2;white-space:normal;overflow-wrap:anywhere;word-break:normal\">${formatted}</div>\n    </div>`;\n]]]"
       },
       "styles": {
         "card": [
@@ -156,19 +158,19 @@
             "height": "92px"
           },
           {
-            "padding": "15px 17px"
+            "padding": "12px"
           },
           {
-            "border-radius": "25px"
+            "border-radius": "20px"
           },
           {
-            "border": "1px solid rgba(255,255,255,0.055)"
+            "border": "1px solid color-mix(in srgb,var(--primary-text-color) 6%,transparent)"
           },
           {
-            "background": "linear-gradient(145deg,rgba(43,43,43,0.98),rgba(27,27,27,0.98))"
+            "background": "linear-gradient(145deg,color-mix(in srgb,var(--ha-card-background,var(--card-background-color)) 94%,var(--primary-text-color)),var(--ha-card-background,var(--card-background-color)))"
           },
           {
-            "box-shadow": "0 14px 30px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.05)"
+            "box-shadow": "0 8px 20px rgba(0,0,0,0.12), inset 0 1px 0 color-mix(in srgb,var(--primary-text-color) 5%,transparent)"
           }
         ],
         "grid": [
@@ -211,7 +213,7 @@
         "index": 1
       },
       "custom_fields": {
-        "content": "[[[\n  const idx=Number(variables.index)||1;\n  const voltagePattern='', resistancePattern='';\n  const cellState=(field,index)=>hass.states[(field==='voltage'?variables.cell_entities:variables.resistance_entities)?.[index-1]];\n  const state = entity?.state;\n  const value = Number.parseFloat(state);\n  const known = Number.isFinite(value);\n  let cells = [];\n  for (let i = 1; i <= 32; i++) {\n    const s = cellState('voltage', i, voltagePattern);\n    const v = s ? Number.parseFloat(s.state) : NaN;\n    if (Number.isFinite(v)) cells.push(v);\n  }\n  const min = cells.length ? Math.min(...cells) : NaN;\n  const max = cells.length ? Math.max(...cells) : NaN;\n  const avg = cells.length ? cells.reduce((a, b) => a + b, 0) / cells.length : NaN;\n  const spread = Number.isFinite(min) && Number.isFinite(max) ? max - min : 0;\n  let accent = '#55d6a9';\n  if (known && spread > 0.0005) {\n    if (Math.abs(value - max) < 0.000001) accent = '#ff7043';\n    else if (Math.abs(value - min) < 0.000001) accent = '#22d3ee';\n  }\n  const width = known && spread > 0.0005\n    ? Math.max(4, Math.min(100, (value - min) / spread * 100))\n    : (known ? 100 : 0);\n  const dev = known && Number.isFinite(avg) ? (value - avg) * 1000 : null;\n  const devText = dev === null ? '' : `${dev >= 0 ? '+' : '−'}${Math.abs(dev).toFixed(0)} mV к среднему`;\n  const formatted = known ? `${value.toFixed(3)} V` : '—';\n  const resState = cellState('resistance', idx, resistancePattern);\n  const resVal = resState ? Number.parseFloat(resState.state) : NaN;\n  const resText = Number.isFinite(resVal) ? `${resVal.toFixed(2)} mΩ` : '';\n  return `\n    <div style=\"display:grid;grid-template-rows:auto auto 1fr auto;row-gap:6px;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"color:rgba(255,255,255,.6);font-size:12.5px;font-weight:500;line-height:1.15\">Ячейка ${idx}</div>\n      <div style=\"color:#f7f7f7;font-size:clamp(20px,1.35vw,25px);font-weight:600;line-height:1;letter-spacing:-.4px;white-space:nowrap\">${formatted}</div>\n      <div style=\"display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0\">\n        <span style=\"color:rgba(255,255,255,.5);font-size:11.5px;line-height:1.1;white-space:nowrap\">${devText}</span>\n        ${resText ? `<span style=\"color:rgba(255,255,255,.45);font-size:11.5px;font-weight:500;white-space:nowrap;letter-spacing:.1px;margin-left:auto\">${resText}</span>` : ''}\n      </div>\n      <div style=\"height:7px;border-radius:99px;background:rgba(255,255,255,.09);overflow:hidden\"><div style=\"width:${width}%;height:100%;border-radius:99px;background:${accent};box-shadow:0 0 12px ${accent};transition:width .7s ease\"></div></div>\n    </div>`;\n]]]\n"
+        "content": "[[[\n  const idx=Number(variables.index)||1;\n  const voltagePattern='', resistancePattern='';\n  const cellState=(field,index)=>hass.states[(field==='voltage'?variables.cell_entities:variables.resistance_entities)?.[index-1]];\n  const state = entity?.state;\n  const value = Number.parseFloat(state);\n  const known = Number.isFinite(value);\n  let cells = [];\n  for (let i = 1; i <= 32; i++) {\n    const s = cellState('voltage', i, voltagePattern);\n    const v = s ? Number.parseFloat(s.state) : NaN;\n    if (Number.isFinite(v)) cells.push(v);\n  }\n  const min = cells.length ? Math.min(...cells) : NaN;\n  const max = cells.length ? Math.max(...cells) : NaN;\n  const avg = cells.length ? cells.reduce((a, b) => a + b, 0) / cells.length : NaN;\n  const spread = Number.isFinite(min) && Number.isFinite(max) ? max - min : 0;\n  let accent = '#55d6a9';\n  if (known && spread > 0.0005) {\n    if (Math.abs(value - max) < 0.000001) accent = '#ff7043';\n    else if (Math.abs(value - min) < 0.000001) accent = '#22d3ee';\n  }\n  const width = known && spread > 0.0005\n    ? Math.max(4, Math.min(100, (value - min) / spread * 100))\n    : (known ? 100 : 0);\n  const dev = known && Number.isFinite(avg) ? (value - avg) * 1000 : null;\n  const devText = dev === null ? '' : `${dev >= 0 ? '+' : '−'}${Math.abs(dev).toFixed(0)} mV ${globalThis.PowerMonitorTranslate?.(\"к среднему\")??\"к среднему\"}`;\n  const formatted = known ? `${value.toFixed(3)} V` : '—';\n  const resState = cellState('resistance', idx, resistancePattern);\n  const resVal = resState ? Number.parseFloat(resState.state) : NaN;\n  const resText = Number.isFinite(resVal) ? `${resVal.toFixed(2)} mΩ` : '';\n  return `\n    <div style=\"display:grid;grid-template-rows:auto auto 1fr auto;row-gap:6px;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"color:color-mix(in srgb,var(--primary-text-color) 60%,transparent);font-size:12.5px;font-weight:500;line-height:1.15\">${globalThis.PowerMonitorTranslate?.(\"Ячейка\")??\"Ячейка\"} ${idx}</div>\n      <div style=\"color:var(--primary-text-color);font-size:clamp(20px,1.35vw,25px);font-weight:600;line-height:1;letter-spacing:-.4px;white-space:nowrap\">${formatted}</div>\n      <div style=\"display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0\">\n        <span style=\"color:color-mix(in srgb,var(--primary-text-color) 50%,transparent);font-size:11.5px;line-height:1.1;white-space:nowrap\">${devText}</span>\n        ${resText ? `<span style=\"color:color-mix(in srgb,var(--primary-text-color) 45%,transparent);font-size:11.5px;font-weight:500;white-space:nowrap;letter-spacing:.1px;margin-left:auto\">${resText}</span>` : ''}\n      </div>\n      <div style=\"height:7px;border-radius:99px;background:color-mix(in srgb,var(--primary-text-color) 9%,transparent);overflow:hidden\"><div style=\"width:${width}%;height:100%;border-radius:99px;background:${accent};box-shadow:0 0 12px ${accent};transition:width .7s ease\"></div></div>\n    </div>`;\n]]]"
       },
       "styles": {
         "card": [
@@ -222,16 +224,16 @@
             "padding": "14px 15px"
           },
           {
-            "border-radius": "25px"
+            "border-radius": "20px"
           },
           {
-            "border": "1px solid rgba(255,255,255,0.055)"
+            "border": "1px solid color-mix(in srgb,var(--primary-text-color) 6%,transparent)"
           },
           {
-            "background": "linear-gradient(145deg,rgba(43,43,43,0.98),rgba(27,27,27,0.98))"
+            "background": "linear-gradient(145deg,color-mix(in srgb,var(--ha-card-background,var(--card-background-color)) 94%,var(--primary-text-color)),var(--ha-card-background,var(--card-background-color)))"
           },
           {
-            "box-shadow": "0 14px 30px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.05)"
+            "box-shadow": "0 8px 20px rgba(0,0,0,0.12), inset 0 1px 0 color-mix(in srgb,var(--primary-text-color) 5%,transparent)"
           },
           {
             "overflow": "hidden"
@@ -277,32 +279,32 @@
       "variables": {
         "bms_name": "BMS"
       },
-      "extra_styles": "@keyframes balance_wave {\n  0% { background-position: 0% 50%; }\n  50% { background-position: 100% 50%; }\n  100% { background-position: 0% 50%; }\n}\n@keyframes balance_card_pulse {\n  0%, 100% {\n    border-color: rgba(85,214,169,0.3);\n    box-shadow: 0 14px 30px rgba(0,0,0,0.28), 0 0 16px rgba(85,214,169,0.12), inset 0 1px 0 rgba(255,255,255,0.08);\n  }\n  50% {\n    border-color: rgba(85,214,169,0.6);\n    box-shadow: 0 14px 30px rgba(0,0,0,0.28), 0 0 28px rgba(85,214,169,0.25), inset 0 1px 0 rgba(255,255,255,0.14);\n  }\n}\n",
+      "extra_styles": "@keyframes balance_wave {\n  0% { background-position: 0% 50%; }\n  50% { background-position: 100% 50%; }\n  100% { background-position: 0% 50%; }\n}\n@keyframes balance_card_pulse {\n  0%, 100% {\n    border-color: rgba(85,214,169,0.3);\n    box-shadow: 0 0 16px rgba(85,214,169,0.12), inset 0 1px 0 color-mix(in srgb,var(--primary-text-color) 8%,transparent);\n  }\n  50% {\n    border-color: rgba(85,214,169,0.6);\n    box-shadow: 0 0 28px rgba(85,214,169,0.25), inset 0 1px 0 color-mix(in srgb,var(--primary-text-color) 14%,transparent);\n  }\n}\n",
       "custom_fields": {
-        "content": "[[[\n  const valid=c=>['on','off'].includes(c?.state);\n  const source=entity;\n  const currentSource=hass.states[variables.current_entity];\n  const current = Number.parseFloat(currentSource?.state);\n  const binaryKnown = valid(source);\n  const currentKnown = Number.isFinite(current);\n  const on = binaryKnown ? source.state === 'on' : (currentKnown && Math.abs(current) >= 0.01);\n  const unknown = !binaryKnown && !currentKnown;\n  const accent = unknown ? 'rgba(255,255,255,.45)' : (on ? '#55d6a9' : '#7e57c2');\n  const bmsName = variables.bms_name || 'BMS';\n  const label = unknown ? `Нет данных · ${bmsName}` : (on ? `${bmsName}: балансировка активна` : `${bmsName}: балансировка не активна`);\n  const sub = unknown ? `Проверьте связь с ${bmsName}` : (on ? `${bmsName} выравнивает ячейки прямо сейчас` : 'Разброс ячеек в пределах нормы');\n  const icon = 'mdi:scale-balance';\n  const iconBg = on && !unknown ? 'rgba(85,214,169,.15)' : 'rgba(255,255,255,.06)';\n  const iconBorder = on && !unknown ? '1px solid rgba(85,214,169,.35)' : '1px solid rgba(255,255,255,.06)';\n  const pillBg = unknown ? 'rgba(255,255,255,.07)' : (on ? 'rgba(85,214,169,.16)' : 'rgba(126,87,194,.13)');\n  const pillBorder = on && !unknown ? '1px solid rgba(85,214,169,.35)' : '1px solid rgba(255,255,255,.06)';\n  return `\n    <div style=\"display:grid;grid-template-columns:44px minmax(0,1fr) auto;column-gap:13px;align-items:center;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:${iconBg};border:${iconBorder};box-shadow:inset 0 1px 0 rgba(255,255,255,.1);box-sizing:border-box\">\n        <ha-icon icon=\"${icon}\" style=\"width:23px;color:${accent};display:block\"></ha-icon>\n      </div>\n      <div style=\"min-width:0\">\n        <div style=\"color:#f2f2f2;font-size:15px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis\">${label}</div>\n        <div style=\"color:rgba(255,255,255,.52);font-size:12px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis\">${sub}</div>\n      </div>\n      <div style=\"justify-self:end;padding:5px 12px;border-radius:99px;background:${pillBg};border:${pillBorder};color:${accent};font-size:11.5px;font-weight:600;letter-spacing:.3px;white-space:nowrap;box-sizing:border-box\">${unknown ? '—' : (on ? 'ON' : 'OFF')}</div>\n    </div>`;\n]]]\n"
+        "content": "[[[\n  const valid=c=>['on','off'].includes(c?.state);\n  const source=entity;\n  const currentSource=hass.states[variables.current_entity];\n  const current = Number.parseFloat(currentSource?.state);\n  const binaryKnown = valid(source);\n  const currentKnown = Number.isFinite(current);\n  const on = binaryKnown ? source.state === 'on' : (currentKnown && Math.abs(current) >= 0.01);\n  const unknown = !binaryKnown && !currentKnown;\n  const accent = unknown ? 'color-mix(in srgb,var(--primary-text-color) 45%,transparent)' : (on ? '#55d6a9' : '#7e57c2');\n  const bmsName = variables.bms_name || 'BMS';\n  const label = unknown ? `${globalThis.PowerMonitorTranslate?.(\"Нет данных ·\")??\"Нет данных ·\"} ${bmsName}` : (on ? `${bmsName}: ${globalThis.PowerMonitorTranslate?.(\"балансировка активна\")??\"балансировка активна\"}` : `${bmsName}: ${globalThis.PowerMonitorTranslate?.(\"балансировка не активна\")??\"балансировка не активна\"}`);\n  const sub = unknown ? `${globalThis.PowerMonitorTranslate?.(\"Проверьте связь с\")??\"Проверьте связь с\"} ${bmsName}` : (on ? `${bmsName} ${globalThis.PowerMonitorTranslate?.(\"выравнивает ячейки прямо сейчас\")??\"выравнивает ячейки прямо сейчас\"}` : (globalThis.PowerMonitorTranslate?.(\"Сейчас не выполняется\")??\"Сейчас не выполняется\"));\n  const icon = 'mdi:scale-balance';\n  const iconBg = on && !unknown ? 'rgba(85,214,169,.15)' : 'color-mix(in srgb,var(--primary-text-color) 6%,transparent)';\n  const iconBorder = on && !unknown ? '1px solid rgba(85,214,169,.35)' : '1px solid color-mix(in srgb,var(--primary-text-color) 6%,transparent)';\n  const pillBg = unknown ? 'color-mix(in srgb,var(--primary-text-color) 7%,transparent)' : (on ? 'rgba(85,214,169,.16)' : 'rgba(126,87,194,.13)');\n  const pillBorder = on && !unknown ? '1px solid rgba(85,214,169,.35)' : '1px solid color-mix(in srgb,var(--primary-text-color) 6%,transparent)';\n  return `\n    <div style=\"display:grid;grid-template-columns:32px minmax(0,1fr) auto;column-gap:10px;align-items:center;width:100%;height:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:${iconBg};border:${iconBorder};box-shadow:inset 0 1px 0 color-mix(in srgb,var(--primary-text-color) 10%,transparent);box-sizing:border-box\">\n        <ha-icon icon=\"${icon}\" style=\"width:20px;color:${accent};display:block\"></ha-icon>\n      </div>\n      <div style=\"min-width:0\">\n        <div style=\"color:var(--primary-text-color);font-size:13px;font-weight:500;line-height:1.2;white-space:normal;overflow-wrap:anywhere\">${label}</div>\n        <div style=\"color:color-mix(in srgb,var(--primary-text-color) 52%,transparent);font-size:12px;line-height:1.25;white-space:normal;overflow-wrap:anywhere\">${sub}</div>\n      </div>\n      <div style=\"justify-self:end;padding:5px 8px;border-radius:99px;background:${pillBg};border:${pillBorder};color:${accent};font-size:11.5px;font-weight:600;letter-spacing:.3px;white-space:nowrap;box-sizing:border-box\">${unknown ? '—' : (on ? 'ON' : 'OFF')}</div>\n    </div>`;\n]]]"
       },
       "styles": {
         "card": [
           {
-            "height": "74px"
+            "min-height": "74px"
           },
           {
             "padding": "13px 17px"
           },
           {
-            "border-radius": "25px"
+            "border-radius": "20px"
           },
           {
-            "border": "[[[\n  const on = entity?.state === 'on';\n  return on ? '1px solid rgba(85,214,169,0.32)' : '1px solid rgba(255,255,255,0.055)';\n]]]\n"
+            "border": "[[[\n  const on = entity?.state === 'on';\n  return on ? '1px solid rgba(85,214,169,0.32)' : '1px solid color-mix(in srgb,var(--primary-text-color) 6%,transparent)';\n]]]"
           },
           {
-            "background": "[[[\n  const on = entity?.state === 'on';\n  return on\n    ? 'linear-gradient(135deg, rgba(85,214,169,0.22) 0%, rgba(43,43,43,0.98) 45%, rgba(85,214,169,0.12) 75%, rgba(27,27,27,0.98) 100%)'\n    : 'linear-gradient(145deg, rgba(43,43,43,0.98), rgba(27,27,27,0.98))';\n]]]\n"
+            "background": "[[[\n  const on = entity?.state === 'on';\n  const base = 'var(--ha-card-background, var(--card-background-color))';\n  const tint = 'color-mix(in srgb,#55d6a9 18%,transparent)';\n  return on\n    ? `linear-gradient(135deg, ${tint} 0%, ${base} 45%, ${tint} 75%, ${base} 100%)`\n    : 'linear-gradient(145deg, color-mix(in srgb, var(--ha-card-background, var(--card-background-color)) 94%, var(--primary-text-color)), var(--ha-card-background, var(--card-background-color)))';\n]]]"
           },
           {
-            "background-size": "[[[\n  const on = entity?.state === 'on';\n  return on ? '200% 200%' : '100% 100%';\n]]]\n"
+            "background-size": "[[[\n  const on = entity?.state === 'on';\n  return on ? '200% 200%' : '100% 100%';\n]]]"
           },
           {
-            "animation": "[[[\n  const on = entity?.state === 'on';\n  return on ? 'balance_wave 6s ease infinite, balance_card_pulse 3s ease-in-out infinite' : 'none';\n]]]\n"
+            "animation": "[[[\n  const on = entity?.state === 'on';\n  return on ? 'balance_wave 6s ease infinite, balance_card_pulse 3s ease-in-out infinite' : 'none';\n]]]"
           },
           {
             "overflow": "hidden"
@@ -470,7 +472,7 @@
                 }
               },
               "card_mod": {
-                "style": "ha-card {\n  border-radius: 32px;\n  border: 1px solid rgba(255,255,255,.055);\n  background: linear-gradient(145deg,rgba(44,44,44,.98),rgba(25,25,25,.98));\n  box-shadow: 0 22px 48px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.06);\n  overflow: hidden;\n}\n"
+                "style": "ha-card {\n  border-radius: 20px;\n  border: 1px solid var(--divider-color);\n  background: var(--ha-card-background, var(--card-background-color));\n  color: var(--primary-text-color);\n  box-shadow: var(--ha-card-box-shadow, none);\n  overflow: hidden;\n}\n"
               }
             },
             {
@@ -807,7 +809,8 @@
                             "icon": "mdi:battery-sync",
                             "variables": {
                               "accent": "#ffb74d",
-                              "max_value": 6000
+                              "max_value": 6000,
+                              "decimals": 0
                             }
                           },
                           {
@@ -902,7 +905,7 @@
                       {
                         "type": "custom:mushroom-title-card",
                         "title": "Ячейки батареи",
-                        "subtitle": "Напряжение всех восьми ячеек и баланс"
+                        "subtitle": "Напряжение ячеек и баланс"
                       },
                       {
                         "type": "grid",
@@ -1615,7 +1618,7 @@
                                 }
                               ],
                               "card_mod": {
-                                "style": "ha-card {\n  border-radius: 32px;\n  border: 1px solid rgba(255,255,255,.055);\n  background: linear-gradient(145deg,rgba(43,43,43,.98),rgba(25,25,25,.98));\n  box-shadow: 0 20px 44px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.055);\n  overflow: hidden;\n}\n"
+                                "style": "ha-card {\n  border-radius: 32px;\n  border: 1px solid color-mix(in srgb,var(--primary-text-color) 6%,transparent);\n  background: var(--ha-card-background,var(--card-background-color));\n  box-shadow: 0 20px 44px rgba(0,0,0,.32), inset 0 1px 0 color-mix(in srgb,var(--primary-text-color) 6%,transparent);\n  overflow: hidden;\n}\n"
                               }
                             }
                           }
@@ -1683,6 +1686,70 @@
                   "icon": "mdi:battery-heart-variant"
                 },
                 {
+                  "type": "custom:button-card",
+                  "entity": "__PM_bms2_available__",
+                  "name": "BMS 2 не подключена",
+                  "icon": "mdi:battery-off-outline",
+                  "variables": {
+                    "accent": "#ffb74d"
+                  },
+                  "custom_fields": {
+                    "content": "[[[\n  const on = entity?.state === 'on';\n  if (on) return '';\n  return `\n    <div style=\"display:flex;align-items:center;gap:14px;width:100%;box-sizing:border-box;text-align:left\">\n      <div style=\"flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--primary-text-color) 6%,transparent)\"><ha-icon icon=\"mdi:plug-outline\" style=\"width:20px;color:var(--warning-color,#ffb74d)\"></ha-icon></div>\n      <div style=\"min-width:0;white-space:normal;overflow-wrap:anywhere\"><div style=\"font-size:14px;font-weight:500;line-height:1.25;color:var(--primary-text-color)\">BMS 2 не подключена</div><div style=\"font-size:12px;line-height:1.5;color:var(--secondary-text-color)\">Слот не настроен. Подключите батарею в разделе «Управление → Батарея».</div></div>\n    </div>`;\n]]]"
+                  },
+                  "styles": {
+                    "card": [
+                      {
+                        "display": "[[[\n  return entity?.state === 'on' ? 'none' : 'block';\n]]]"
+                      },
+                      {
+                        "padding": "15px 17px"
+                      },
+                      {
+                        "border-radius": "20px"
+                      },
+                      {
+                        "border": "1px solid color-mix(in srgb,var(--primary-text-color) 6%,transparent)"
+                      },
+                      {
+                        "background": "var(--ha-card-background,var(--card-background-color))"
+                      }
+                    ],
+                    "grid": [
+                      {
+                        "grid-template-areas": "\"content\""
+                      },
+                      {
+                        "grid-template-columns": "minmax(0,1fr)"
+                      },
+                      {
+                        "grid-template-rows": "minmax(0,1fr)"
+                      }
+                    ],
+                    "custom_fields": {
+                      "content": [
+                        {
+                          "grid-area": "content"
+                        },
+                        {
+                          "width": "100%"
+                        },
+                        {
+                          "min-width": 0
+                        },
+                        {
+                          "white-space": "normal"
+                        }
+                      ]
+                    }
+                  },
+                  "show_icon": false,
+                  "show_name": false,
+                  "show_state": false,
+                  "tap_action": {
+                    "action": "none"
+                  }
+                },
+                {
                   "type": "conditional",
                   "conditions": [
                     {
@@ -1718,7 +1785,8 @@
                             "icon": "mdi:battery-sync",
                             "variables": {
                               "accent": "#ffb74d",
-                              "max_value": 6000
+                              "max_value": 6000,
+                              "decimals": 0
                             }
                           },
                           {
@@ -1813,7 +1881,7 @@
                       {
                         "type": "custom:mushroom-title-card",
                         "title": "Ячейки BMS 2",
-                        "subtitle": "Напряжение восьми ячеек и внутреннее сопротивление"
+                        "subtitle": "Напряжение ячеек и внутреннее сопротивление"
                       },
                       {
                         "type": "grid",
@@ -2526,7 +2594,7 @@
                                 }
                               ],
                               "card_mod": {
-                                "style": "ha-card {\n  border-radius: 32px;\n  border: 1px solid rgba(255,255,255,.055);\n  background: linear-gradient(145deg,rgba(43,43,43,.98),rgba(25,25,25,.98));\n  box-shadow: 0 20px 44px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.055);\n  overflow: hidden;\n}\n"
+                                "style": "ha-card {\n  border-radius: 32px;\n  border: 1px solid color-mix(in srgb,var(--primary-text-color) 6%,transparent);\n  background: var(--ha-card-background,var(--card-background-color));\n  box-shadow: 0 20px 44px rgba(0,0,0,.32), inset 0 1px 0 color-mix(in srgb,var(--primary-text-color) 6%,transparent);\n  overflow: hidden;\n}\n"
                               }
                             }
                           }

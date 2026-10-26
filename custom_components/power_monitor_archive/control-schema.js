@@ -1,7 +1,7 @@
-import {technical,locale} from './i18n.js?v=1.0.226';
-import CATALOG from './inverter-catalog.js?v=1.0.226';
+import {t,technical,locale} from './i18n.js?v=1.0.236';
+import CATALOG from './inverter-catalog.js?v=1.0.236';
 /* Device field contracts. Presentation is owned entirely by the HA frontend. */
-export const PAGES={relays:['Реле','mdi:electric-switch'],inverter:['Инвертор','mdi:solar-power'],bms:['Батарея','mdi:battery-medium'],settings:['Настройки','mdi:tune'],telegram:['Telegram','mdi:send'],'home-assistant':['Home Assistant','mdi:home-assistant'],events:['События','mdi:history']};
+export const PAGES={relays:['Реле','mdi:electric-switch'],inverter:['Инвертор','mdi:solar-power'],bms:['Батарея','mdi:battery-medium'],settings:['Настройки','mdi:tune'],telegram:['Telegram','mdi:send'],'home-assistant':['Подключение и доступ','mdi:home-assistant'],events:['События','mdi:history']};
 const f=(key,label,type='number',extra={})=>({key,label,type,...extra});
 export const RELAY_GROUPS=[
  ['Канал',[f('name','Название','text',{maxLength:32}),f('enabled','Использовать канал','switch'),f('activeLow','Включение низким уровнем','switch'),f('priority','Приоритет','number',{min:0,max:255})]],
@@ -63,14 +63,14 @@ export const optionText=value=>OPTION_TEXT[value]||String(value).replace(/\bHz\b
 export function inverterOptions(settings,key){
  let list=settings.options?.[key]||(settings.source==='pi30'?INV_OPTIONS[key]:null);
  if(!list&&(key.startsWith('flag')||['equalizationEnabled','equalizationActive','pvPowerBalance','mustOffGridOutputEnabled','mustSearchModeEnabled'].includes(key)))list=[[0,'Выключено'],[1,'Включено']];
- return list?.map(o=>{const [v,t]=Array.isArray(o)?o:[o.value??o,o.label??String(o.value??o)];return [v,technical(optionText(t))]});
+ return list?.map(o=>{const [v,text]=Array.isArray(o)?o:[o.value??o,o.label??String(o.value??o)];return [v,t(optionText(text))]});
 }
 export function inverterValue(settings,key,value){
  if(value===null||value===undefined||value==='')return '—';
  const option=inverterOptions(settings,key)?.find(([v])=>Number(v)===Number(value));if(option)return option[1];
- const text=settings.displayValues?.[key];if(text)return technical(optionText(text));
+ const text=settings.displayValues?.[key];if(text)return t(optionText(text));
  const unit=LABELS[key]?.match(/, (В·А|А·ч|Вт|Гц|мин|дни|В|А)$/)?.[1];
- return (Number.isFinite(Number(value))?Number(value).toLocaleString(locale(),{maximumFractionDigits:3}):String(value))+(unit?' '+technical(unit):'');
+ return (Number.isFinite(Number(value))?Number(value).toLocaleString(locale(),{maximumFractionDigits:3}):String(value))+(unit?' '+t(unit):'');
 }
 
 Object.assign(REASONS,{safe_off_after_boot:'Безопасное выключение после запуска',startup_grace:'Пауза после запуска',restart_delay:'Ожидание повторного запуска',maximum_runtime:'Достигнут предел времени работы',inverter_data_stale:'Нет свежих данных инвертора',bms_data_stale:'Нет свежих данных BMS',outside_schedule:'Вне расписания',grid_required:'Нет внешней сети',pv_too_low:'Недостаточная солнечная мощность',soc_too_low:'Недостаточный заряд',soc_stop_threshold:'Достигнут порог отключения',charge_current_too_low:'Недостаточный ток заряда',battery_discharging:'Превышен ток разряда',grid_power_too_high:'Превышена мощность сети',load_power_too_high:'Превышена мощность нагрузки',grid_power_unavailable:'Нет данных мощности сети',load_power_unavailable:'Нет данных мощности нагрузки',conditions_met:'Условия выполнены',minimum_switch_interval:'Пауза между переключениями',configuration_changed:'Настройки изменены'});

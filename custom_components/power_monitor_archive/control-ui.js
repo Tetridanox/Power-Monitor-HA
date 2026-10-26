@@ -1,4 +1,4 @@
-import {t,isApplicationMessage,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.226';
+import {t,isApplicationMessage,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.236';
 /* Small native DOM primitives; never render device-provided HTML. */
 export const el=(tag,cls,text,raw=false)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)setText(n,text,!raw);return n};
 export const icon=name=>{const n=el('ha-icon');n.setAttribute('icon',name);return n};
@@ -39,12 +39,13 @@ export const errorText=error=>{
  if(error?.status===422)return t('Устройство отклонило значение. Проверьте параметры');
  return t('Не удалось подтвердить действие. Проверьте связь и состояние устройства');
 };
-export const eventStamp=(event,data)=>{
- let stamp=Number(event.timestamp)||0;
- if(stamp<1700000000&&data.serverTimestamp>=1700000000&&event.uptimeSeconds<=data.serverUptimeSeconds)stamp=data.serverTimestamp-(data.serverUptimeSeconds-event.uptimeSeconds);
- return stamp;
-};
-export const eventTime=(event,data)=>{const stamp=eventStamp(event,data);return stamp>=1700000000?new Date(stamp*1000).toLocaleString(locale(),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):t('До синхронизации')};
+// Persisted events do not identify their boot. Never infer their date from
+// the current boot's uptime: that silently moves old events into today.
+export const eventStamp=event=>Number(event?.timestamp)>=1700000000?Number(event.timestamp):0;
+export const eventTime=(event,data)=>{const stamp=eventStamp(event,data),raw=Number(event?.timestamp)||0;
+ if(stamp<1700000000)return t('До синхронизации');
+ const text=new Date(stamp*1000).toLocaleString(locale(),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+ return raw<1700000000?t('≈ ')+text:text};
 // `active` describes the recorded edge, never the present health of a device.
 export function eventMeta(event){
  const code=String(event.code||''),recovery=/(_restored|_normal|_recovered)$/.test(code);

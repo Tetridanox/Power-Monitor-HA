@@ -1,0 +1,73 @@
+blueprint:
+  name: Power Monitor — Telegram status and PV graph
+  description: Read-only /status and /pv commands through HA. Select one bot, chat and sender. No commands change the ESP or charging schedule.
+  domain: automation
+  input:
+    bot_event:
+      name: Telegram bot update event
+      selector:
+        entity:
+          filter:
+            domain: event
+            integration: telegram_bot
+    telegram_entry:
+      name: Telegram integration
+      selector:
+        config_entry:
+          integration: telegram_bot
+    device:
+      name: Power Monitor deviceId (12 lowercase hexadecimal characters)
+      selector:
+        text:
+    chat_id:
+      name: Allowed chat ID
+      selector:
+        text:
+    user_id:
+      name: Allowed sender user ID
+      description: Required also for a group chat. Other members cannot request reports.
+      selector:
+        text:
+    language:
+      name: Report language
+      default: ru
+      selector:
+        select:
+          options: [ru, uk, en]
+variables:
+  selected_bot: !input telegram_entry
+  allowed_chat: !input chat_id
+  allowed_user: !input user_id
+triggers:
+  - trigger: state
+    entity_id: !input bot_event
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.to_state is not none
+         and trigger.to_state.attributes.get('event_type') == 'telegram_command'
+         and trigger.to_state.attributes.get('bot', {}).get('config_entry_id') == selected_bot
+         and (trigger.to_state.attributes.get('chat_id', '') | string) == (allowed_chat | string)
+         and (trigger.to_state.attributes.get('user_id', '') | string) == (allowed_user | string)
+         and trigger.to_state.attributes.get('command', '').split('@')[0] in ['/status', '/pv'] }}
+actions:
+  - choose:
+      - conditions: "{{ trigger.to_state.attributes.command.split('@')[0] == '/status' }}"
+        sequence:
+          - action: power_monitor_archive.telegram_status
+            data:
+              device: !input device
+              telegram_entry: !input telegram_entry
+              chat_id: !input chat_id
+              language: !input language
+    default:
+      - action: power_monitor_archive.telegram_generation_graph
+        data:
+          device: !input device
+          telegram_entry: !input telegram_entry
+          chat_id: !input chat_id
+          language: !input language
+          hours: 24
+  - delay: "00:00:05"
+mode: single
+max_exceeded: silent

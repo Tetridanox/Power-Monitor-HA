@@ -9,7 +9,7 @@ import voluptuous as vol
 from homeassistant.components import frontend as ha_frontend, panel_custom, websocket_api, persistent_notification
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.lovelace import LOVELACE_DATA
-from homeassistant.const import EVENT_HOMEASSISTANT_STOP
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP, EVENT_CORE_CONFIG_UPDATE
 from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -17,6 +17,7 @@ from homeassistant.helpers import entity_registry as er
 from .const import DOMAIN, PANEL, VERSION
 from .pm_archive.runtime import Application
 from .pm_archive.store import ArchiveError
+from .pm_archive.analytics import cost_settings, resolved_cost_settings
 from .coordinator import PowerMonitorCoordinator
 from .frontend import ensure_frontend_resources
 
@@ -66,18 +67,39 @@ async def async_setup(hass, config):
         temporary = target.with_suffix(".js.pmnew")
         temporary.write_bytes(Path(__file__).with_name("cards-loader.js").read_bytes())
         temporary.replace(target)
+        # A blueprint is inert until the admin creates an automation. Preserve
+        # any locally edited copy; never create or enable a messaging automation.
+        blueprint=Path(hass.config.path('blueprints','automation',DOMAIN,'telegram_reports.yaml'))
+        if not blueprint.exists():
+            blueprint.parent.mkdir(parents=True,exist_ok=True)
+            blueprint.write_bytes((Path(__file__).parent/'blueprints'/'telegram_reports.yaml').read_bytes())
     await hass.async_add_executor_job(install_loader)
     state["app"] = await hass.async_add_executor_job(_create_app, hass)
     state["reads"] = asyncio.Semaphore(1)
     state["admitted_reads"] = 0
     state["entries"] = {}
     state["coordinators"] = {}
+    from .telegram_reports import register_reports
+    register_reports(hass,state)
+    from .energy_statistics import register_energy_statistics
+    register_energy_statistics(hass,state)
     app = state["app"]
+    @callback
+    def update_cost_timezones(_event):
+        with app.lock:
+            for entry in state['entries'].values():
+                for device in app.devices:
+                    if device['deviceId']==entry.data['deviceId']:
+                        device['costSettings']=resolved_cost_settings(entry.options.get('costSettings'),hass.config.time_zone)
+    state['timezone_unsub']=hass.bus.async_listen(EVENT_CORE_CONFIG_UPDATE,update_cost_timezones)
     thread = threading.Thread(target=app.run_writer, name="power-monitor-archive", daemon=True)
     state["thread"] = thread
     thread.start()
 
     async def stop(_event):
+        state['timezone_unsub']()
+        from .telegram_commands import stop_receiver
+        for device in list(state.get('telegram_receivers',{})):stop_receiver(state,device)
         app.stop.set()
         # Each request has an 8 s timeout; no new cycle starts after stop.
         await hass.async_add_executor_job(thread.join, 12)
@@ -92,7 +114,7 @@ async def async_setup(hass, config):
     await hass.http.async_register_static_paths([
         StaticPathConfig('/power_monitor_archive/' + name, str(Path(__file__).with_name(name)), False)
         for name in ('forecast-card.js', 'dashboard-setup.js', 'dashboard-bootstrap.js', 'control-schema.js', 'control-api.js', 'control-views.js',
-                     'i18n.js', 'i18n-messages.js', 'control-validation.js', 'control-hardware.js', 'control-backup.js', 'control-ota.js', 'control-ui.js', 'control.css', 'inverter-catalog.js')
+                     'i18n.js', 'i18n-messages.js', 'control-validation.js', 'control-hardware.js', 'control-backup.js', 'control-ota.js', 'control-ui.js', 'control.css', 'inverter-catalog.js', 'insights-card.js', 'telegram-card.js')
     ])
     websocket_api.async_register_command(hass, websocket_archive)
     websocket_api.async_register_command(hass, websocket_device)
@@ -122,11 +144,14 @@ async def async_setup_entry(hass, entry):
     with app.lock:
         if len(app.devices) >= 8 and entry.data["deviceId"] not in {d["deviceId"] for d in app.devices}:
             return False
-        app.devices = [d for d in app.devices if d["deviceId"] != entry.data["deviceId"]] + [{**entry.data, "dashboardPath": entry.options.get("dashboardPath")}]
+        app.devices = [d for d in app.devices if d["deviceId"] != entry.data["deviceId"]] + [{**entry.data, "dashboardPath": entry.options.get("dashboardPath"), 'costSettings':resolved_cost_settings(entry.options.get('costSettings'),hass.config.time_zone)}]
         for cache in (app.states, app.live_states, app.interface_states):
             cache.pop(entry.data['deviceId'], None)
         app.device_cache = {k: v for k, v in app.device_cache.items() if k[0] != entry.data['deviceId']}
     state["entries"][entry.entry_id] = entry
+    from .telegram_commands import refresh_receiver
+    try:refresh_receiver(hass,state,entry)
+    except ValueError:logging.getLogger(__name__).warning('Invalid Power Monitor Telegram settings; receiver disabled')
     if entry.data.get("liveRead"):
         coordinator=PowerMonitorCoordinator(hass,app,entry.data["deviceId"])
         state["coordinators"][entry.entry_id]=coordinator
@@ -142,8 +167,12 @@ async def async_setup_entry(hass, entry):
 
 async def async_unload_entry(hass, entry):
     state = hass.data[DOMAIN]
+    from .telegram_commands import stop_receiver
+    stop_receiver(state,entry.data['deviceId'])
     if entry.entry_id in state["coordinators"]:
         if not await hass.config_entries.async_unload_platforms(entry,["sensor","binary_sensor"]):
+            from .telegram_commands import refresh_receiver
+            refresh_receiver(hass,state,entry)
             return False
         state["coordinators"].pop(entry.entry_id,None)
     with state["app"].lock:
@@ -158,13 +187,16 @@ async def async_unload_entry(hass, entry):
 
 @websocket_api.websocket_command({
     vol.Required("type"): DOMAIN + "/query",
-    vol.Required("action"): vol.In(("status", "coverage", "history", "days", "resume", "current", "interface", "dashboard")),
+    vol.Required("action"): vol.In(("status", "coverage", "history", "days", "resume", "current", "interface", "dashboard", "analytics", "costs", "analysis_settings", "telegram_settings", "telegram_settings_save")),
     vol.Optional("device"): vol.All(str, vol.Match(r"^[0-9a-f]{12}$")),
     vol.Optional("start"): vol.All(int, vol.Range(min=0, max=0xffffffff)),
     vol.Optional("end"): vol.All(int, vol.Range(min=0, max=0xffffffff)),
     vol.Optional("maximum", default=1440): vol.All(int, vol.Range(min=10, max=2000)),
     vol.Optional("url"): vol.All(str, vol.Length(max=192)),
     vol.Optional("dashboardPath"): vol.All(str, vol.Match(r"^power-monitor-[0-9a-f]{12}$")),
+    vol.Optional('slot',default=0):vol.All(int,vol.Range(min=0,max=1)),
+    vol.Optional('costSettings'):dict,
+    vol.Optional('telegramSettings'):dict,
 })
 @websocket_api.async_response
 async def websocket_archive(hass, connection, msg):
@@ -187,6 +219,30 @@ async def websocket_archive(hass, connection, msg):
             app.resume.add(device)
     if not known:
         connection.send_error(msg["id"], "unknown_device", "Device is not configured"); return
+    if action in ('telegram_settings','telegram_settings_save'):
+        from .telegram_commands import report_settings,save_report_settings
+        entry=next((e for e in state['entries'].values() if e.data['deviceId']==device),None)
+        try:
+            if entry is None:raise ArchiveError('Unknown Power Monitor')
+            result=save_report_settings(hass,state,entry,msg.get('telegramSettings')) if action=='telegram_settings_save' else report_settings(hass,state,entry)
+            connection.send_result(msg['id'],result)
+        except (ArchiveError,ValueError,TypeError):
+            connection.send_error(msg['id'],'invalid_format','Check the Telegram bot, allowed chat and report settings')
+        return
+    if action=='analysis_settings':
+        try:
+            if 'costSettings' not in msg:raise ArchiveError('Price settings required')
+            settings=resolved_cost_settings(msg.get('costSettings'),hass.config.time_zone)
+            entry=next((e for e in state['entries'].values() if e.data['deviceId']==device),None)
+            if entry is None: raise ArchiveError('unknown device')
+            hass.config_entries.async_update_entry(entry,options={**entry.options,'costSettings':settings})
+            with app.lock:
+                for item in app.devices:
+                    if item['deviceId']==device:item['costSettings']=settings
+            connection.send_result(msg['id'],{'saved':True,'costSettings':settings})
+        except (ArchiveError,ValueError,TypeError):
+            connection.send_error(msg['id'],'invalid_format','Invalid price settings')
+        return
     if action == "dashboard":
         path = msg.get("dashboardPath")
         if path != "power-monitor-" + device:
@@ -220,6 +276,8 @@ async def websocket_archive(hass, connection, msg):
                 result = await hass.async_add_executor_job(app.coverage, device)
             elif action == "interface":
                 result = await hass.async_add_executor_job(app.set_interface, device, msg["url"])
+            elif action=='analytics':
+                result=await hass.async_add_executor_job(app.analytics,device,msg['start'],msg['end'],msg['maximum'],msg['slot'])
             else:
                 result = await hass.async_add_executor_job(getattr(app, action), device,
                     msg["start"], msg["end"], msg["maximum"])

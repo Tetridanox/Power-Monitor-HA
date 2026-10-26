@@ -1,0 +1,74 @@
+export_energy_statistics:
+  name: Preview or export daily archive to HA Energy statistics
+  description: Append finalized daily totals to separate statistics. Does not configure Energy or rewrite existing imported points. Start with dry_run.
+  fields:
+    device:
+      required: true
+      selector:
+        text:
+    dry_run:
+      default: true
+      selector:
+        boolean:
+    before:
+      description: Optional exclusive Unix timestamp before the first live counter day. The first confirmed import freezes this boundary; later exports keep it.
+      selector:
+        number:
+          min: 1700000000
+          max: 4294967295
+          mode: box
+    confirmation:
+      description: For an actual export enter IMPORT_DAILY_ARCHIVE after reviewing the preview.
+      selector:
+        text:
+telegram_status:
+  name: Telegram status through HA
+  description: Send current Power Monitor values through a configured Home Assistant Telegram bot.
+  fields:
+    device:
+      required: true
+      selector:
+        text:
+    telegram_entry:
+      required: true
+      selector:
+        config_entry:
+          integration: telegram_bot
+    language:
+      default: ru
+      selector:
+        select:
+          options: [ru, uk, en]
+    chat_id:
+      required: true
+      selector:
+        text:
+telegram_generation_graph:
+  name: Telegram PV graph through HA
+  description: Render measured PV history on HA in its timezone and send a PNG through an allowed HA Telegram chat. No file access configuration is required.
+  fields:
+    device:
+      required: true
+      selector:
+        text:
+    telegram_entry:
+      required: true
+      selector:
+        config_entry:
+          integration: telegram_bot
+    language:
+      default: ru
+      selector:
+        select:
+          options: [ru, uk, en]
+    chat_id:
+      required: true
+      selector:
+        text:
+    hours:
+      default: 24
+      selector:
+        number:
+          min: 1
+          max: 168
+          mode: box

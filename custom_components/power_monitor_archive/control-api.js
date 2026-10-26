@@ -1,4 +1,4 @@
-import {t} from './i18n.js?v=1.0.226';
+import {t} from './i18n.js?v=1.0.236';
 /* HA-only transport. Credentials and LAN addresses never enter this module. */
 const utf8=new TextEncoder(), decoder=new TextDecoder();
 const encode=bytes=>{let text='';for(let i=0;i<bytes.length;i+=8192)text+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(text)};

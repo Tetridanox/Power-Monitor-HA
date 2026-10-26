@@ -1,4 +1,4 @@
-import {messages} from './i18n-messages.js?v=1.0.226';
+import {messages} from './i18n-messages.js?v=1.0.236';
 const KEY='power-monitor-language';
 const supported=new Set(['ru','uk','en']);
 let profile='ru',override='auto';
@@ -9,6 +9,9 @@ export const language=()=>override==='auto'?profile:override;
 export const languagePreference=()=>override;
 export const locale=()=>({ru:'ru-RU',uk:'uk-UA',en:'en-GB'})[language()];
 export function t(source){const value=String(source??'');const key=messages[value]?value:reverse.get(value)||value;return language()==='ru'?key:messages[key]?.[language()==='uk'?0:1]??value}
+// Generated dashboard expressions translate only their static application
+// literals. Interpolated device names and user YAML are never traversed.
+globalThis.PowerMonitorTranslate=t;
 export function technical(source){const value=String(source??'');const key=messages[value]?value:reverse.get(value)||value;return messages[key]?.[1]??({'В·А':'VA','А·ч':'Ah','Вт':'W','Гц':'Hz','мин':'min','дни':'days','В':'V','А':'A'}[value])??value}
 export const isApplicationMessage=value=>typeof value==='string'&&(Object.hasOwn(messages,value)||reverse.has(value));
 function changed(){globalThis.window?.dispatchEvent(new Event('power-monitor-language-changed'))}

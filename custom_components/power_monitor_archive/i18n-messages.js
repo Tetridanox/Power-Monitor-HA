@@ -1,5 +1,7 @@
 /* [Ukrainian, English], keyed by the canonical Russian application message. */
 export const messages={
+"Подключение и доступ":["Підключення і доступ","Connection and access"],
+"Сейчас не выполняется":["Зараз не виконується","Not active now"],
 "Изменений нет":["Змін немає","No changes"],
 "Для запуска Telegram перезапустите ESP":["Для запуску Telegram перезапустіть ESP","Restart ESP to start Telegram"],
 "Нет получателей с разрешением «Сеть восстановлена»":["Немає отримувачів із дозволом «Мережу відновлено»","No recipients have the Grid restored permission"],
@@ -2133,6 +2135,58 @@ export const messages={
   "Підтвердити",
   "Confirm"
  ],
+ "Выключить реле": [
+  "Вимкнути реле",
+  "Turn off relays"
+ ],
+ "Очистить журнал": [
+  "Очистити журнал",
+  "Clear log"
+ ],
+ "Очистить журнал сбоев на ESP?": [
+  "Очистити журнал збоїв на ESP?",
+  "Clear the crash log on the ESP?"
+ ],
+ "Сохранённые сведения о сбоях будут удалены безвозвратно.": [
+  "Збережені відомості про збої буде видалено безповоротно.",
+  "Saved crash details will be permanently deleted."
+ ],
+ "Связь и автоматическое управление временно прервутся. Настройки сохраняются.": [
+  "Зв’язок і автоматичне керування тимчасово перервуться. Налаштування зберігаються.",
+  "Connection and automatic control will be briefly interrupted. Settings are preserved."
+ ],
+ "Управление из HA прекратится. Для подключения потребуется новый код с ESP. Архив измерений сохранится.": [
+  "Керування з HA припиниться. Для підключення знадобиться новий код з ESP. Архів вимірювань збережеться.",
+  "HA control will stop. A new code from the ESP is required to reconnect. The measurement archive is kept."
+ ],
+ "Очистить журнал событий на ESP?": [
+  "Очистити журнал подій на ESP?",
+  "Clear the event log on the ESP?"
+ ],
+ "Будет удалён журнал событий устройства. Архив измерений (история графиков) не затрагивается.": [
+  "Буде видалено журнал подій пристрою. Архів вимірювань (історія графіків) не зачіпається.",
+  "The device event log will be deleted. The measurement archive (chart history) is not affected."
+ ],
+ "Изменить параметр инвертора?": [
+  "Змінити параметр інвертора?",
+  "Change the inverter parameter?"
+ ],
+ "Показания этой батареи станут недоступны. Настройки слота сохраняются.": [
+  "Показання цієї батареї стануть недоступні. Налаштування слота зберігаються.",
+  "This battery's readings will become unavailable. Slot settings are preserved."
+ ],
+ "Время восстановлено по счётчику аптайма — приблизительное": [
+  "Час відновлено за лічильником аптайму — приблизний",
+  "Time reconstructed from the uptime counter — approximate"
+ ],
+ "Слот не настроен. Подключите BMS, чтобы видеть заряд, ячейки и защиты.": [
+  "Слот не налаштований. Підключіть BMS, щоб бачити заряд, комірки й захисти.",
+  "Slot is not configured. Connect a BMS to see state of charge, cells and protections."
+ ],
+ "Доступные каналы выключатся и перейдут в ручной режим. Расписания и авторежим сохранятся.": [
+  "Доступні канали вимкнуться і перейдуть у ручний режим. Розклади й авторежим збережуться.",
+  "Available channels switch to the manual off mode. Schedules and auto rules are preserved."
+ ],
  "Подтверждение заряда, с": [
   "Підтвердження заряду, с",
   "Charge confirmation, s"
@@ -3069,6 +3123,14 @@ export const messages={
   "Цільовий сервер",
   "Target server"
  ],
+ "Разброс ячеек ΔV, mV": [
+  "Розкид комірок ΔV, мВ",
+  "Cell spread ΔV, mV"
+ ],
+ "Здоровье SOH, %": [
+  "Здоров’я SOH, %",
+  "Health SOH, %"
+ ],
  "Циклы": [
   "Цикли",
   "Cycles"
@@ -3468,5 +3530,147 @@ export const messages={
  "Токен бота": [
   "Токен бота",
   "Bot token"
- ]
+ ],
+"Заряд АКБ (SOC)":["Заряд АКБ (SOC)", "Battery charge (SOC)"],
+"мин до разряда":["хв до розряду", "min until empty"],
+"мин до 100%":["хв до 100%", "min until 100%"],
+"Буферный режим":["Буферний режим", "Float mode"],
+"к среднему":["до середнього", "from mean"],
+"Ячейка":["Комірка", "Cell"],
+"Нет данных ·":["Немає даних ·", "No data ·"],
+"балансировка активна":["балансування активне", "balancing active"],
+"балансировка не активна":["балансування не активне", "balancing inactive"],
+"Проверьте связь с":["Перевірте зв’язок з", "Check connection to"],
+"выравнивает ячейки прямо сейчас":["вирівнює комірки зараз", "is balancing cells now"],
+"Разброс ячеек в пределах нормы":["Різниця комірок у межах норми", "Cell deviation is within the reference range"],
+"АКБ":["АКБ", "Battery"],
+"Батарея и мощность":["Батарея та потужність", "Battery and power"],
+"Напряжение АКБ":["Напруга АКБ", "Battery voltage"],
+"Мощность АКБ":["Потужність АКБ", "Battery power"],
+"Ток АКБ":["Струм АКБ", "Battery current"],
+"Температуры и разброс ячеек":["Температури та різниця комірок", "Temperatures and cell deviation"],
+"Датчики BMS 1":["Датчики BMS 1", "BMS 1 sensors"],
+"BMS датчик 1":["BMS датчик 1", "BMS sensor 1"],
+"BMS датчик 2":["BMS датчик 2", "BMS sensor 2"],
+"Ключи MOSFET":["Ключі MOSFET", "MOSFETs"],
+"Мин. ячейка":["Мін. комірка", "Minimum cell"],
+"Ячейки батареи":["Комірки батареї", "Battery cells"],
+"Напряжение ячеек и баланс":["Напруга комірок та баланс", "Cell voltages and balancing"],
+"Ячейки · 24 часа":["Комірки · 24 години", "Cells · 24 hours"],
+"Минимум":["Мінімум", "Minimum"],
+"Максимум":["Максимум", "Maximum"],
+"Датчики BMS 2":["Датчики BMS 2", "BMS 2 sensors"],
+"Ячейки BMS 2":["Комірки BMS 2", "BMS 2 cells"],
+"Напряжение ячеек и внутреннее сопротивление":["Напруга комірок та внутрішній опір", "Cell voltages and internal resistance"],
+"Ячейки BMS 2 · 24 часа":["Комірки BMS 2 · 24 години", "BMS 2 cells · 24 hours"],
+"Аналитика Power Monitor":["Аналітика Power Monitor", "Power Monitor analytics"],
+"Аналитика":["Аналітика", "Analytics"],
+"Не удалось прочитать аналитику HA. Проверьте связь и права администратора.":["Не вдалося прочитати аналітику HA. Перевірте зв’язок і права адміністратора.", "Could not load HA analytics. Check connection and administrator permissions."],
+"Открыть штатную панель энергии HA":["Відкрити стандартну панель енергії HA", "Open HA Energy dashboard"],
+"Аналитика работает на сервере HA. Новая история BMS накапливается с момента обновления; пропуски не восстанавливаются.":["Аналітика працює на сервері HA. Нова історія BMS накопичується з моменту оновлення; пропуски не відновлюються.", "Analytics runs on HA. New BMS history accumulates after the update; missing periods are not reconstructed."],
+"История этой BMS ещё не накоплена. Для сбора требуется право PM4.":["Історія цієї BMS ще не накопичена. Для збору потрібен дозвіл PM4.", "No history collected for this BMS yet. Collection requires PM4 permission."],
+"SOH передаёт BMS; линия 80% — справочный уровень. ΔV зависит от SOC, тока и температуры. Прогноз отказа не выполняется.":["SOH передає BMS; лінія 80% — довідковий рівень. ΔV залежить від SOC, струму й температури. Прогноз відмови не виконується.", "SOH comes from the BMS; 80% is a reference line. Cell deviation depends on SOC, current and temperature. This is not a failure prediction."],
+"Отклонение ячеек от среднего, mV":["Відхилення комірок від середнього, mV", "Cell deviation from mean, mV"],
+"Дата":["Дата", "Date"],
+"Последние 31 день выбранного периода. Цвет показывает среднее отклонение в наблюдавшихся состояниях батареи.":["Останні 31 день вибраного періоду. Колір показує середнє відхилення у спостережуваних станах батареї.", "Last 31 days of the selected period. Colour shows mean cell deviation in observed battery states."],
+"Наблюдения балансировки":["Спостереження балансування", "Balancing observations"],
+"После пропуска данных":["Після пропуску даних", "After a data gap"],
+"Проверка раз в 5 минут: это наблюдения состояния, время реального переключения может отличаться.":["Перевірка раз на 5 хвилин: це спостереження стану, фактичний час перемикання може відрізнятися.", "Sampled every 5 minutes: these are observed states; actual switching times may differ."],
+"Оценка стоимости энергии":["Оцінка вартості енергії", "Energy cost estimate"],
+"Оценочная стоимость генерации PV":["Оцінна вартість генерації PV", "Estimated PV generation value"],
+"Покрытие измерениями":["Покриття вимірюваннями", "Measurement coverage"],
+"Цены формы применяются ко всему выбранному периоду. Это оценка по данным Power Monitor, не счёт поставщика. Стоимость PV не равна измеренной экономии. Для день/ночь учитываются только сохранившиеся минутные интервалы.":["Ціни форми застосовуються до всього вибраного періоду. Це оцінка за даними Power Monitor, не рахунок постачальника. Вартість PV не дорівнює виміряній економії. Для дня/ночі враховуються лише збережені хвилинні інтервали.", "Form prices apply to the whole selected period. This is an estimate from Power Monitor data, not a supplier bill. PV value is not measured savings. Day/night calculations use retained minute intervals only."],
+"Настроить цены":["Налаштувати ціни", "Configure prices"],
+"Одна цена":["Одна ціна", "Flat price"],
+"День / ночь":["День / ніч", "Day / night"],
+"Цена за kWh":["Ціна за kWh", "Price per kWh"],
+"Ночная цена":["Нічна ціна", "Night price"],
+"Начало ночи":["Початок ночі", "Night starts"],
+"Конец ночи":["Кінець ночі", "Night ends"],
+"Валюта":["Валюта", "Currency"],
+"Часовой пояс":["Часовий пояс", "Time zone"],
+"Сохранить цены в HA":["Зберегти ціни в HA", "Save prices in HA"],
+"Ячейка 1":["Комірка 1", "Cell 1"],
+"Ячейка 2":["Комірка 2", "Cell 2"],
+"Ячейка 3":["Комірка 3", "Cell 3"],
+"Ячейка 4":["Комірка 4", "Cell 4"],
+"Ячейка 5":["Комірка 5", "Cell 5"],
+"Ячейка 6":["Комірка 6", "Cell 6"],
+"Ячейка 7":["Комірка 7", "Cell 7"],
+"Ячейка 8":["Комірка 8", "Cell 8"],
+"Ячейка 9":["Комірка 9", "Cell 9"],
+"Ячейка 10":["Комірка 10", "Cell 10"],
+"Ячейка 11":["Комірка 11", "Cell 11"],
+"Ячейка 12":["Комірка 12", "Cell 12"],
+"Ячейка 13":["Комірка 13", "Cell 13"],
+"Ячейка 14":["Комірка 14", "Cell 14"],
+"Ячейка 15":["Комірка 15", "Cell 15"],
+"Ячейка 16":["Комірка 16", "Cell 16"],
+"Ячейка 17":["Комірка 17", "Cell 17"],
+"Ячейка 18":["Комірка 18", "Cell 18"],
+"Ячейка 19":["Комірка 19", "Cell 19"],
+"Ячейка 20":["Комірка 20", "Cell 20"],
+"Ячейка 21":["Комірка 21", "Cell 21"],
+"Ячейка 22":["Комірка 22", "Cell 22"],
+"Ячейка 23":["Комірка 23", "Cell 23"],
+"Ячейка 24":["Комірка 24", "Cell 24"],
+"Ячейка 25":["Комірка 25", "Cell 25"],
+"Ячейка 26":["Комірка 26", "Cell 26"],
+"Ячейка 27":["Комірка 27", "Cell 27"],
+"Ячейка 28":["Комірка 28", "Cell 28"],
+"Ячейка 29":["Комірка 29", "Cell 29"],
+"Ячейка 30":["Комірка 30", "Cell 30"],
+"Ячейка 31":["Комірка 31", "Cell 31"],
+"Ячейка 32":["Комірка 32", "Cell 32"],
+"{% if is_state('__PM_grid_present__', 'on') %}Сеть: {{ states('__PM_grid_voltage__') | round(0) }} V{% else %}Нет сети{% endif %}":["{% if is_state('__PM_grid_present__', 'on') %}Мережа: {{ states('__PM_grid_voltage__') | round(0) }} V{% else %}Немає мережі{% endif %}", "{% if is_state('__PM_grid_present__', 'on') %}Grid: {{ states('__PM_grid_voltage__') | round(0) }} V{% else %}No grid{% endif %}"],
+"Режим: {{ states('__PM_operating_mode__') | replace('battery', 'АКБ') | replace('line', 'Сеть') }}":["Режим: {{ states('__PM_operating_mode__') | replace('battery', 'АКБ') | replace('line', 'Мережа') }}", "Mode: {{ states('__PM_operating_mode__') | replace('battery', 'Battery') | replace('line', 'Grid') }}"],
+"{% if is_state('__PM_bms_available__', 'on') %}BMS: Онлайн{% else %}BMS: Офлайн{% endif %}":["{% if is_state('__PM_bms_available__', 'on') %}BMS: Онлайн{% else %}BMS: Офлайн{% endif %}", "{% if is_state('__PM_bms_available__', 'on') %}BMS: Online{% else %}BMS: Offline{% endif %}"],
+"{% if is_state('__PM_balancing__', 'on') %}Баланс: ON{% else %}Баланс: OFF{% endif %}":["{% if is_state('__PM_balancing__', 'on') %}Баланс: ON{% else %}Баланс: OFF{% endif %}", "{% if is_state('__PM_balancing__', 'on') %}Balancing: ON{% else %}Balancing: OFF{% endif %}"],
+"Батарея и энергия":["Батарея та енергія", "Battery and energy"],
+"Не удалось обновить данные":["Не вдалося оновити дані", "Could not update data"],
+"Динамика батареи":["Динаміка батареї", "Battery trends"],
+"История батареи ещё накапливается":["Історія батареї ще накопичується", "Battery history is still building"],
+"О показателях батареи":["Про показники батареї", "About battery metrics"],
+"Отклонение от среднего · mV":["Відхилення від середнього · mV", "Deviation from average · mV"],
+"Нет данных от выбранной BMS":["Немає даних від вибраної BMS", "No data from the selected BMS"],
+"ячеек":["комірок", "cells"],
+"Энергия и стоимость":["Енергія та вартість", "Energy and cost"],
+"Тарифы":["Тарифи", "Rates"],
+"Стоимость энергии из сети":["Вартість енергії з мережі", "Grid energy cost"],
+"Энергия из сети":["Енергія з мережі", "Grid energy"],
+"Стоимость генерации PV":["Вартість генерації PV", "PV generation value"],
+"Оценка стоимости генерации PV (по тарифу)":["Оцінка вартості генерації PV (за тарифом)", "Estimated PV generation value (at tariff rates)"],
+"Укажите тариф для расчёта":["Вкажіть тариф для розрахунку", "Set a rate to calculate cost"],
+"Как считается стоимость":["Як розраховується вартість", "How cost is calculated"],
+"История BMS обновляется каждые 5 минут":["Історія BMS оновлюється кожні 5 хвилин", "BMS history updates every 5 minutes"],
+"Открыть панель энергии":["Відкрити панель енергії", "Open Energy dashboard"],
+"Тарифы на электроэнергию":["Тарифи на електроенергію", "Electricity rates"],
+"Цены для расчёта стоимости":["Ціни для розрахунку вартості", "Prices used to calculate cost"],
+"Дневная цена":["Денна ціна", "Day rate"],
+"Дополнительно":["Додатково", "Advanced"],
+"Новые цены применяются ко всему выбранному периоду.":["Нові ціни застосовуються до всього вибраного періоду.", "New prices apply to the entire selected period."],
+"Не удалось сохранить тариф. Проверьте значения и повторите.":["Не вдалося зберегти тариф. Перевірте значення та повторіть.", "Could not save rates. Check the values and try again."],
+"Как в Home Assistant":["Як у Home Assistant", "Use Home Assistant timezone"],
+"Уведомления ESP":["Сповіщення ESP", "ESP notifications"],
+"Команды и графики":["Команди та графіки", "Commands and charts"],
+"Работают только при подключённой интеграции Home Assistant. Сервер должен быть включён.":["Працюють лише з підключеною інтеграцією Home Assistant. Сервер має бути ввімкнений.", "Only work with a connected Home Assistant integration. The server must be running."],
+"Включены":["Увімкнено", "Enabled"],
+"Выключены":["Вимкнено", "Disabled"],
+"Проверьте подключение бота, разрешённый чат и настройки команд.":["Перевірте підключення бота, дозволений чат і налаштування команд.", "Check the bot connection, allowed chat and command settings."],
+"Загрузка настроек…":["Завантаження налаштувань…", "Loading settings…"],
+"Добавьте бота через интеграцию Telegram bot в Home Assistant.":["Додайте бота через інтеграцію Telegram bot у Home Assistant.", "Add a bot using the Telegram bot integration in Home Assistant."],
+"Принимать команды":["Приймати команди", "Receive commands"],
+"Только от разрешённого отправителя":["Лише від дозволеного відправника", "Only from the allowed sender"],
+"Разрешённый чат":["Дозволений чат", "Allowed chat"],
+"Язык сообщений":["Мова повідомлень", "Message language"],
+"Период графика, часов":["Період графіка, годин", "Chart range, hours"],
+"ID разрешённого отправителя":["ID дозволеного відправника", "Allowed sender ID"],
+"Текущие показания и состояние системы":["Поточні показники та стан системи", "Current readings and system status"],
+"График солнечной генерации":["Графік сонячної генерації", "Solar generation chart"],
+"Настройки сохраняются в Home Assistant":["Налаштування зберігаються в Home Assistant", "Settings are stored in Home Assistant"],
+"Настройки бота в Home Assistant":["Налаштування бота в Home Assistant", "Bot settings in Home Assistant"]
+,
+"Поиск событий":["Пошук подій","Search events"],
+"Дата с":["Дата від","From date"],
+"Дата по":["Дата до","To date"]
 };
