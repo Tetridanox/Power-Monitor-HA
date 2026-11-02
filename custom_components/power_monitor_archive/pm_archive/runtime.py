@@ -13,9 +13,15 @@ import base64
 import json
 import http.client
 
-from .store import ArchiveError, ArchiveStore
+from .store import ArchiveError, ArchiveStore, unpack_minute, resolve_minute_extensions
 from .sync import Source, Synchronizer
 from .analytics import AnalyticsStore, read_battery, cost_settings, minute_cost
+from .external_history import ExternalHistory, archive_query
+from .retention import LocalRetention
+from .jk_logbook import JkLogbookStore, latest_windows
+from .storage import local_storage, export_page
+from .managed_storage import (ManagedHistory, StorageWorker, load_settings, settings as storage_settings,
+                              prepare_folder, save_json, folder_choices, local_space, storage_locations, SETTINGS)
 
 
 def device_cache_seconds(path):
@@ -45,13 +51,13 @@ def remaining_energy_kwh(values):
 def power_summary(rows):
     """Fixed-memory statistics over source records, before graph decimation."""
     channels = {key: {"sum": 0, "count": 0, "max": None, "min": None}
-                for key in ("pvPower", "gridPower", "loadPower", "batteryChargePower", "batteryDischargePower",
-                            "gridVoltage", "outputVoltage", "batteryVoltage", "pvVoltage", "inverterTemperature", "soc")}
+                for key in ("pvPower", "pv1Power", "pv2Power", "gridPower", "loadPower", "batteryChargePower", "batteryDischargePower",
+                            "gridVoltage", "outputVoltage", "batteryVoltage", "pvVoltage", "pv2Voltage", "inverterTemperature", "soc")}
     previous = None
     first = last = None
     gaps, gap_count = [], 0
     for timestamp, raw in rows:
-        fields = struct.unpack("<III8H4bBBHH", raw)
+        fields = unpack_minute(raw)
         first = timestamp if first is None else first
         last = timestamp
         if previous is not None and timestamp - previous > 120:
@@ -79,10 +85,13 @@ def minute_measurements(fields):
     inv, battery = bool(fields[16] & 1), bool(fields[16] & 2)
     values = {key: fields[3+i] if (battery if i >= 3 else inv) else None
               for i,key in enumerate(("pvPower","gridPower","loadPower","batteryChargePower","batteryDischargePower"))}
-    values.update(gridVoltage=fields[9]/10 if inv else None,
+    second = fields[20] if inv and fields[20] != 65535 and fields[20] <= fields[3] else None
+    values.update(pv1Power=fields[3]-second if second is not None else None, pv2Power=second,
+                  gridVoltage=fields[9]/10 if inv else None,
                   outputVoltage=fields[10]/10 if inv else None,
                   batteryVoltage=(fields[8] | fields[17]<<16)/1000 if battery else None,
                   pvVoltage=fields[18]/10 if inv and fields[18]!=65535 else None,
+                  pv2Voltage=fields[19]/10 if inv and fields[19]!=65535 else None,
                   inverterTemperature=fields[14] if inv and fields[14]!=-128 else None,
                   soc=fields[15] if battery and fields[15]<=100 else None)
     return values
@@ -91,10 +100,14 @@ def minute_measurements(fields):
 class Application:
     def __init__(self, config):
         self.data = Path(config["dataDirectory"]).resolve()
-        self.data.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if config.get('createDataDirectory', True):
+            self.data.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.database = self.data / "archive.sqlite"
         self.analytics_database = self.data / "analytics.sqlite"
         self.analytics_error = None
+        self.logbook_database = self.data / 'jk-logbook.sqlite'
+        self.logbook_states = {}
+        self.logbook_error = None
         self.devices = list(config.get("devices", []))
         self.lock = threading.Lock()
         self.stop = threading.Event()
@@ -103,12 +116,56 @@ class Application:
         self.states = {}
         self.writer_error = None
         self.live_states = {}
+        self.inverter_profiles = {}
         self.interface_states = {}
         self.interface_command = None
         self.sources = {}
         self.device_commands = deque()
         self.device_cache = {}
         self.ota_quiet_until = 0
+        self.external_history = None
+        self.external_history_error = None
+        self.storage_command = None
+        self.storage_worker = None
+        self.storage_worker_error = None
+        self.storage_ready = threading.Event()
+        self.storage_pressure = {'recordingPaused': False}
+        self.space_due = 0
+        self.storage_settings = {'mode': 'local', 'path': '', 'limitBytes': 10 * 1024**3}
+        if config.get('externalHistory', True):
+            try:
+                self.storage_settings = load_settings(self.data)
+                if self.storage_settings['mode'] == 'folder':
+                    self.external_history = ManagedHistory(self.storage_settings)
+            except (OSError, ValueError, TypeError, KeyError):
+                self.external_history_error = 'invalid_configuration'
+            reader_config = self.data / 'external-history.json'
+            if self.storage_settings['mode'] == 'legacy' and reader_config.exists():
+                try:
+                    self.external_history = ExternalHistory(reader_config)
+                except (OSError, ValueError, TypeError, KeyError):
+                    self.external_history_error = 'invalid_configuration'
+
+    def _archive_connection(self):
+        connection = sqlite3.connect(self.database.as_uri() + '?mode=ro', uri=True, timeout=2)
+        try:
+            resolve_minute_extensions(connection)
+            connection.execute('PRAGMA query_only=ON')
+            connection.execute('PRAGMA cache_size=-1024')
+            connection.execute('BEGIN')
+            return connection
+        except BaseException:
+            connection.close(); raise
+
+    def _analytics_connection(self):
+        connection = sqlite3.connect(self.analytics_database.as_uri() + '?mode=ro', uri=True, timeout=2)
+        try:
+            connection.execute('PRAGMA query_only=ON')
+            connection.execute('PRAGMA cache_size=-512')
+            connection.execute('BEGIN')
+            return connection
+        except BaseException:
+            connection.close(); raise
 
     def _require_binding(self, device, signature, permission):
         """Caller holds lock; never hold it over source I/O."""
@@ -128,7 +185,7 @@ class Application:
             paired = next((dict(d) for d in self.devices if d['deviceId'] == device), None)
         if paired is None:
             raise ArchiveError('unknown device')
-        history = serve_device_history(self, paired, request)
+        history = self.archived_device_request(device, request)
         if history is not None:
             return history
         path, headers, body = validate_request(request)
@@ -157,6 +214,13 @@ class Application:
         with self.lock:
             self._require_binding(device, command['signature'], 'deviceControl')
         return result
+
+    @archive_query
+    def archived_device_request(self, device, request):
+        paired = next((d for d in self.devices if d['deviceId'] == device), None)
+        if paired is None:
+            raise ArchiveError('unknown device')
+        return serve_device_history(self, paired, request)
 
     def _device_pass(self, syncs):
         with self.lock:
@@ -250,15 +314,28 @@ class Application:
     def run_writer(self):
         try:
             store = ArchiveStore(self.database)
+            retention = LocalRetention(self.data, self.external_history)
             analytics = None
+            logbooks = None
+            try:
+                logbooks = JkLogbookStore(self.logbook_database)
+            except (OSError, sqlite3.Error, ArchiveError) as error:
+                self.logbook_error = type(error).__name__
             try:
                 analytics = AnalyticsStore(self.analytics_database)
             except (OSError, sqlite3.Error, ArchiveError) as error:
                 self.analytics_error = type(error).__name__
             try:
+                self.storage_worker = StorageWorker(self)
+                self.storage_worker.thread.start()
                 syncs, due, live_due, signatures, live_failures = {}, {}, {}, {}, {}
                 battery_due = {}
                 while not self.stop.is_set():
+                    retention.reader = self.external_history
+                    if time.monotonic() >= self.space_due:
+                        self.space_due = time.monotonic() + 30
+                        try: self.storage_pressure = local_space(self.data)
+                        except OSError: self.storage_pressure = {'recordingPaused': True}
                     with self.lock:
                         devices = list(self.devices)
                     active = {d["deviceId"] for d in devices}
@@ -271,11 +348,13 @@ class Application:
                             self.interface_states.pop(removed, None)
                             self.sources.pop(removed, None)
                             self.device_cache = {k: v for k, v in self.device_cache.items() if k[0] != removed}
+                            self.logbook_states = {k:v for k,v in self.logbook_states.items() if k[0]!=removed}
                     for d in devices:
                         signature = pairing_signature(d)
                         if signatures.get(d["deviceId"]) != signature:
                             with self.lock:
                                 self.device_cache = {k: v for k, v in self.device_cache.items() if k[0] != d['deviceId']}
+                                self.logbook_states = {k:v for k,v in self.logbook_states.items() if k[0]!=d['deviceId']}
                             syncs[d["deviceId"]] = Synchronizer(store, Source(d["address"], d["token"]), d["deviceId"], d["generation"])
                             signatures[d["deviceId"]] = signature; due[d["deviceId"]] = 0
                             live_due[d["deviceId"]] = 0
@@ -305,14 +384,17 @@ class Application:
                                 with self.lock:
                                     self._require_binding(device, signatures[device], 'liveRead')
                                     self.live_states[device] = {"values": readings, "at": time.time(), "available": True}
+                                    protocol = manifest.get("inverterProtocol")
+                                    if isinstance(protocol, str) and len(protocol) < 32:
+                                        self.inverter_profiles[device] = protocol
                                     self.interface_states[device] = {"interfaceUrl": manifest.get("interfaceUrl", ""),
                                         "interfaceSupported": manifest.get("interfaceSupported") is True,
                                         "interfaceControl": manifest.get("interfaceControl") is True}
                                 live_due[device] = time.monotonic() + 1.5
                                 live_failures[device] = 0
-                                if analytics and config.get('deviceControl') and time.monotonic() >= battery_due.get(device,0):
+                                if (analytics or logbooks) and not self.storage_pressure['recordingPaused'] and config.get('deviceControl') and time.monotonic() >= battery_due.get(device,0):
                                     battery_due[device] = time.monotonic()+300
-                                    self._observe_batteries(analytics,sync,device,signatures[device],readings)
+                                    self._observe_batteries(analytics,sync,device,signatures[device],readings,logbooks)
                             except Exception as error:
                                 if getattr(error, "status", None) in (401, 403):
                                     sync.stopped = True
@@ -326,7 +408,7 @@ class Application:
                                         "errorType": type(error).__name__, "httpStatus": getattr(error, 'status', None),
                                         "retrySeconds": retry}
                                 live_due[device] = time.monotonic() + retry
-                        if time.monotonic() < due[device]:
+                        if self.storage_pressure['recordingPaused'] or time.monotonic() < due[device]:
                             continue
                         delay = sync.cycle(backfill_pages=4,
                             cancelled=lambda: self.stop.is_set() or not self.device_active(device))
@@ -336,10 +418,15 @@ class Application:
                                 self.states[device] = {"deviceId": device, "generation": sync.generation, **sync.status}
                     self._interface_pass(syncs)
                     self._device_pass(syncs)
+                    retention.step(store, analytics, logbooks)
                     self._wait_for_work()
             finally:
+                self.stop.set(); self.storage_ready.set()
+                if self.storage_worker: self.storage_worker.thread.join(10)
                 if analytics:
                     analytics.close()
+                if logbooks:
+                    logbooks.close()
                 store.close()
         except Exception as error:
             with self.lock:
@@ -375,13 +462,13 @@ class Application:
             value = self.live_states.get(device, {})
             values = dict(value.get('values', {}))
             values['remaining_energy'] = remaining_energy_kwh(values)
-            return {**value, 'values': values, "available": bool(value.get("available") and time.time() - value.get("at", 0) < 35)}
+            return {**value, 'values': values, 'inverterProtocol': self.inverter_profiles.get(device), "available": bool(value.get("available") and time.time() - value.get("at", 0) < 35)}
 
     def _analytics_guard(self,device,signature):
         with self.lock:
             self._require_binding(device,signature,'deviceControl')
 
-    def _observe_batteries(self,analytics,sync,device,signature,readings):
+    def _observe_batteries(self,analytics,sync,device,signature,readings,logbooks=None):
         # Called only by the existing I/O owner after a successful live pass.
         # Optional observations must not invalidate live telemetry or delay a
         # queued control command by opening another slot request.
@@ -397,23 +484,165 @@ class Application:
                 if response['status']!=200:
                     raise ArchiveError('battery observation unavailable')
                 snapshot=json.loads(base64.b64decode(response['body']))
-                analytics.observe(device,sync.generation,slot,time.time(),snapshot)
-                self.analytics_error=None
+                if analytics:
+                    try:
+                        analytics.observe(device,sync.generation,slot,time.time(),snapshot)
+                        self.analytics_error=None
+                    except (OSError,ValueError,sqlite3.Error) as error:
+                        self.analytics_error=type(error).__name__
+                if logbooks:
+                    try:
+                        with self.lock:
+                            self._require_binding(device,signature,'deviceControl')
+                            self.logbook_states[(device,slot)] = logbooks.observe(
+                                device,sync.generation,slot,int(time.time()),snapshot)
+                        self.logbook_error=None
+                    except (OSError,ValueError,sqlite3.Error) as error:
+                        self.logbook_error=type(error).__name__
             except (OSError,http.client.HTTPException,ValueError,ArchiveError,sqlite3.Error) as error:
                 self.analytics_error=type(error).__name__
 
+    def _storage_binding(self,device):
+        with self.lock:
+            paired=next((dict(d) for d in self.devices if d['deviceId']==device),None)
+        if not paired:
+            raise ArchiveError('unknown device')
+        return paired
+
+    def storage_configuration(self, device):
+        self._storage_binding(device)
+        with self.lock:
+            value = {k: self.storage_settings[k] for k in ('mode', 'path', 'limitBytes')}
+        places = storage_locations(self.data, value['path'] if value['mode']=='folder' else '')
+        return {'settings': value, 'folders': folder_choices(), 'localDays': 30, **places,
+                'legacyAvailable': value['mode']=='legacy'}
+
+    def configure_storage(self, device, value):
+        paired = self._storage_binding(device)
+        command = {'paired': paired, 'settings': storage_settings(value), 'done': threading.Event(),
+                   'deadline': time.monotonic() + 15}
+        with self.lock:
+            if self.storage_command is not None or self.stop.is_set() or self.writer_error or self.storage_worker_error:
+                raise ArchiveError('storage owner busy')
+            self.storage_command = command
+            self.storage_ready.set()
+        if not command['done'].wait(60):
+            raise ArchiveError('storage result not confirmed; read settings before retrying')
+        if 'error' in command: raise ArchiveError(command['error'])
+        self._storage_guard(paired)
+        return self.storage_configuration(device)
+
+    def _storage_config_pass(self):
+        with self.lock: command = self.storage_command
+        if command is None: return
+        try:
+            self._storage_guard(command['paired'])
+            if time.monotonic() > command['deadline']: raise ArchiveError('storage command expired')
+            value = command['settings']
+            old = self.external_history
+            if value['mode'] == 'folder':
+                if isinstance(old, ExternalHistory):
+                    try: active = old.request('/v1/status').get('ready') is True
+                    except (OSError, ValueError, http.client.HTTPException): active = False
+                    if active: raise ArchiveError('stop the previous archive service before folder adoption')
+                # Explicit folder adoption is the only code allowed to create
+                # archive files. A disconnected configured folder is never rebuilt.
+                value = prepare_folder(value, self.data, old)
+                reader = ManagedHistory(value)
+            elif value['mode'] == 'legacy':
+                reader = ExternalHistory(self.data / 'external-history.json')
+            else: reader = None
+            self._storage_guard(command['paired'])
+            save_json(self.data / SETTINGS, {'schema': 1, 'settings': {k: value[k] for k in ('mode', 'path', 'limitBytes')},
+                **{k: value[k] for k in ('volumeId', 'sourceId') if k in value}})
+            # Source-only persistence contains no grants or device settings.
+            if isinstance(old, ManagedHistory): old.close()
+            with self.lock:
+                self.storage_settings = value
+                self.external_history = reader
+                self.external_history_error = None
+        except (OSError, ValueError, TypeError, KeyError, sqlite3.Error) as error:
+            command['error'] = type(error).__name__
+        finally:
+            with self.lock: self.storage_command = None
+            command['done'].set()
+
+    def _storage_guard(self,paired):
+        with self.lock:
+            if not any(d['deviceId']==paired['deviceId'] and pairing_signature(d)==pairing_signature(paired)
+                       for d in self.devices):
+                raise ArchiveError('pairing changed')
+
+    def storage_info(self,device):
+        paired=self._storage_binding(device)
+        local={**local_storage(self.data,device,paired['generation']), **self.storage_pressure}
+        external={'configured':False,'available':False}
+        reader=self.external_history
+        if reader:
+            try:
+                external={**reader.storage_request(paired,'storage_info',[]),
+                          'configured':True,'backend':reader.backend}
+                if isinstance(reader,ManagedHistory):
+                    external['locationKind']='server' if reader.root.stat().st_dev==self.data.stat().st_dev else 'external'
+                if self.external_history is not reader:raise ArchiveError('archive changed during storage read')
+            except (OSError,ValueError,sqlite3.Error,http.client.HTTPException):
+                external={'configured':True,'backend':reader.backend,
+                          'available':False,'reason':'reader_unavailable_or_update_required'}
+        windows=latest_windows(self.logbook_database,device,paired['generation'])
+        # A recent local tail wins; retained older slots remain readable on HDD.
+        by_slot={w['slot']:w for w in external.get('logbookWindows',[])}
+        for window in windows:
+            if window['observed']>=by_slot.get(window['slot'],{}).get('observed',0):
+                by_slot[window['slot']]=window
+        windows=[by_slot[key] for key in sorted(by_slot)]
+        with self.lock:
+            states=[{'slot':slot,**self.logbook_states.get((device,slot),{'state':'waiting'})}
+                    for slot in (0,1)]
+            live=self.live_states.get(device,{})
+            if not live.get('available') or time.time()-live.get('at',0)>=35:
+                states=[{**state,'state':'offline'} for state in states]
+            else:
+                for state in states:
+                    if live.get('values',{}).get(f"bms{state['slot']+1}_available") is not True:
+                        state['state']='offline'
+                    elif state['state']=='recording' and time.time()-state.get('observed',0)>600:
+                        state['state']='stale'
+        self._storage_guard(paired)
+        return {'local':local,'external':external,'logbook':{'windows':windows,'states':states,
+                'error':self.logbook_error,'sampleIntervalSeconds':300,'maxWindowEntries':50},
+                'generation':paired['generation']}
+
+    def storage_export(self,device,scope,dataset,start,end,after=0,upper=0,total=0):
+        paired=self._storage_binding(device)
+        if scope=='external':
+            if not self.external_history:
+                raise ArchiveError('dataset unavailable in external storage')
+            result=self.external_history.storage_request(paired,'storage_export',
+                [dataset,start,end,after,upper,total])
+        elif scope=='local':
+            path=self.database if dataset in ('minute','daily') else (
+                self.analytics_database if dataset=='battery' else self.logbook_database)
+            result=export_page(path,device,paired['generation'],dataset,start,end,after,upper,total)
+        else:
+            raise ArchiveError('unknown storage')
+        self._storage_guard(paired)
+        return {**result,'generation':paired['generation'],'scope':scope}
+
+    @archive_query
     def analytics(self,device,start,end,maximum,slot=0):
         with self.lock:
             paired=next((dict(d) for d in self.devices if d['deviceId']==device),None)
         if not paired:
             raise ArchiveError('unknown device')
-        result=read_battery(self.analytics_database,device,paired['generation'],slot,start,end,maximum)
+        result=read_battery(self.analytics_database,device,paired['generation'],slot,start,end,maximum,
+                            connection_factory=self._analytics_connection)
         result['error']=self.analytics_error
         with self.lock:
             if not any(d['deviceId']==device and pairing_signature(d)==pairing_signature(paired) for d in self.devices):
                 raise ArchiveError('pairing changed')
         return result
 
+    @archive_query
     def costs(self,device,start,end,maximum):
         with self.lock:
             paired=next((dict(d) for d in self.devices if d['deviceId']==device),None)
@@ -423,7 +652,7 @@ class Application:
         result={'settings':settings,'configured':bool(paired.get('costSettings')),'source':'HA archive','estimated':True,'pricePolicy':'Selected prices applied to the entire selected period; not a supplier bill.'}
         if not self.database.exists():
             return {**result,'cost':None,'coveredSeconds':0}
-        db=sqlite3.connect(self.database.as_uri()+'?mode=ro',uri=True,timeout=2)
+        db=self._archive_connection()
         try:
             db.execute('PRAGMA query_only=ON'); db.execute('PRAGMA cache_size=-512')
             if settings['mode']=='flat':
@@ -458,13 +687,14 @@ class Application:
         finally:
             db.close()
 
+    @archive_query
     def coverage(self, device):
         paired = next((d for d in self.devices if d["deviceId"] == device), None)
         if not paired:
             raise ArchiveError("unknown device")
         if not self.database.exists():
             return {"first": None, "last": None, "minuteRecords": 0, "dayRecords": 0}
-        db = sqlite3.connect(self.database.as_uri() + "?mode=ro", uri=True, timeout=2)
+        db = self._archive_connection()
         try:
             row = db.execute("""SELECT MIN(CASE WHEN timestamp>=1700000000 THEN timestamp END),
                 MAX(CASE WHEN timestamp>=1700000000 THEN timestamp END),COUNT(*) FROM variants
@@ -477,11 +707,12 @@ class Application:
         finally:
             db.close()
 
+    @archive_query
     def days(self, device, start, end, maximum):
         paired = next((d for d in self.devices if d["deviceId"] == device), None)
         if not paired or not 0 <= start < end <= 0xffffffff or not 10 <= maximum <= 2000:
             raise ArchiveError("invalid daily range")
-        db = sqlite3.connect(self.database.as_uri() + "?mode=ro", uri=True, timeout=2)
+        db = self._archive_connection()
         try:
             width = max(86400, (end - start + maximum) // maximum)
             rows = db.execute("""WITH versions AS (
@@ -507,48 +738,53 @@ class Application:
         finally:
             db.close()
 
+    @archive_query
     def history(self, device, start, end, maximum):
         paired = next((d for d in self.devices if d["deviceId"] == device), None)
         if not paired or not (0 <= start < end <= 0xffffffff) or not 10 <= maximum <= 2000:
             raise ArchiveError("invalid history request")
         if not self.database.exists():
             return {"points": [], "source": "server", "coverage": "starting"}
-        connection = sqlite3.connect(self.database.as_uri() + "?mode=ro", uri=True, timeout=2)
+        connection = self._archive_connection()
         try:
             # SQL works on the server's own DB, never proxies a browser to ESP.
             connection.execute("PRAGMA query_only=ON")
             connection.execute("PRAGMA cache_size=-1024")
-            connection.execute("BEGIN")
             width = max(1, (end - start + maximum) // maximum)
             rows = connection.execute("""WITH unambiguous AS (
                 SELECT timestamp,raw,record_id FROM variants WHERE device=? AND generation=? AND kind='minute'
                 GROUP BY record_id HAVING COUNT(*)=1
-              ), windowed AS (
-                SELECT timestamp,raw,LAG(timestamp) OVER (ORDER BY timestamp,record_id) AS previous
-                FROM unambiguous WHERE timestamp>=? AND timestamp<=?
-              ), ranked AS (
-                SELECT *,ROW_NUMBER() OVER (PARTITION BY ((timestamp-?)/?) ORDER BY timestamp) AS pick,
-                MAX(CASE WHEN timestamp-previous>120 THEN 1 ELSE 0 END)
-                  OVER (PARTITION BY ((timestamp-?)/?)) AS gap FROM windowed
-              ) SELECT timestamp,raw,gap FROM ranked WHERE pick=1 ORDER BY timestamp LIMIT ?""",
-              (device, paired["generation"], start, end, start, width, start, width, maximum)).fetchall()
+              ) SELECT timestamp,raw FROM unambiguous WHERE timestamp>=? AND timestamp<=?
+                ORDER BY timestamp,record_id""", (device, paired["generation"], start, end))
             points = []
-            for timestamp, raw, gap in rows:
-                fields = struct.unpack("<III8H4bBBHH", raw)
-                points.append({"timestamp": timestamp, "pvPower": fields[3], "gridPower": fields[4],
-                    "loadPower": fields[5], "batteryChargePower": fields[6], "batteryDischargePower": fields[7],
-                    "battMv": fields[8] | fields[17] << 16, "tInv": fields[14], "soc": fields[15],
-                    "available": bool(fields[16] & 1), "batteryAvailable": bool(fields[16] & 2),
-                    "pvDv": fields[18], "gapBefore": bool(gap), **minute_measurements(fields)})
+            def sampled_rows():
+                # One ordered scan supplies both full-source statistics and
+                # bounded graph bins. A gap anywhere within a bin marks its
+                # selected first point, exactly as the previous window query.
+                previous = bucket_before = None
+                selected = None
+                for timestamp, raw in rows:
+                    bucket = (timestamp-start)//width
+                    gap = previous is not None and timestamp-previous > 120
+                    if bucket != bucket_before:
+                        selected = None
+                        if len(points) < maximum:
+                            fields = unpack_minute(raw)
+                            selected = {"timestamp": timestamp, "pvPower": fields[3], "gridPower": fields[4],
+                                "loadPower": fields[5], "batteryChargePower": fields[6], "batteryDischargePower": fields[7],
+                                "battMv": fields[8] | fields[17] << 16, "tInv": fields[14], "soc": fields[15],
+                                "available": bool(fields[16] & 1), "batteryAvailable": bool(fields[16] & 2),
+                                "pvDv": fields[18], "pv2Dv": fields[19], "gapBefore": gap, **minute_measurements(fields)}
+                            points.append(selected)
+                        bucket_before = bucket
+                    elif gap and selected is not None:
+                        selected['gapBefore'] = True
+                    previous = timestamp
+                    yield timestamp, raw
+            summary = power_summary(sampled_rows())
             conflicts = connection.execute("""SELECT COUNT(*) FROM (
                 SELECT record_id FROM variants WHERE device=? AND generation=? AND kind='minute'
                 GROUP BY record_id HAVING COUNT(*)>1)""", (device, paired["generation"])).fetchone()[0]
-            summary = power_summary(connection.execute("""WITH unambiguous AS (
-                SELECT timestamp,raw,record_id FROM variants
-                WHERE device=? AND generation=? AND kind='minute'
-                GROUP BY record_id HAVING COUNT(*)=1
-              ) SELECT timestamp,raw FROM unambiguous WHERE timestamp>=? AND timestamp<=?
-                ORDER BY timestamp,record_id""", (device, paired["generation"], start, end)))
             return {"points": points, "source": "server", "generation": paired["generation"],
                     "conflictingSequences": conflicts, "coverage": "available_imported_records_only",
                     "downsampleSeconds": width, "summary": summary}

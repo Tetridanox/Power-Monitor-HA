@@ -22,9 +22,13 @@ class SourceError(ArchiveError):
 
 def decode_page(raw: bytes, kind: str):
     code = {"minute": 1, "daily": 2, "today": 3}[kind]
-    stride, limit = (38, 64) if kind == "minute" else (56, 1 if kind == "today" else 3)
-    if len(raw) < 24 or raw[:4] != b"PMA1" or raw[4] != code or raw[5] & ~1 or raw[7] != stride:
+    # Minute pages arrive as pmh3-38 (older source) or pmh4-40 (+pv2Dv); the
+    # envelope stride field selects the layout for this page.
+    strides = (42, 40, 38) if kind == "minute" else (56,)
+    limit = 64 if kind == "minute" else 1 if kind == "today" else 3
+    if len(raw) < 24 or raw[:4] != b"PMA1" or raw[4] != code or raw[5] & ~1 or raw[7] not in strides:
         raise ArchiveError("unsupported archive envelope")
+    stride = raw[7]
     count = raw[6]
     if count > limit or len(raw) != 24 + count * stride or any(raw[12:24]):
         raise ArchiveError("incomplete or oversized archive envelope")
@@ -47,7 +51,8 @@ class Source:
         self.response_bytes = 0
 
     def request(self, headers=None, *, method="GET", body=None, accepted=(200,), maximum=2456, guard=lambda: None):
-        if maximum not in (2456, 8192):
+        # 2456 = legacy pmh3-38 minute page (24+64*38); pmh4-40 pages are 2584.
+        if maximum not in (2456, 2600, 2720, 8192):
             raise ArchiveError("invalid source body bound")
         self.request_count += 1
         with connected_http(self.address, _LOGGER, '/api/archive') as connection:
@@ -68,7 +73,11 @@ class Source:
     def manifest(self):
         raw, _ = self.request()
         result = json.loads(raw)
-        if (result.get("protocol") != 1 or result.get("minuteSchema") != "pmh3-38" or
+        schemas = result.get('minuteSchemas', [])
+        if not isinstance(schemas, list) or len(schemas) > 3 or any(
+                schema not in ('pmh3-38', 'pmh4-40', 'pmh5-42') for schema in schemas):
+            raise ArchiveError('incompatible optional minute schemas')
+        if (result.get("protocol") != 1 or result.get("minuteSchema") not in ("pmh3-38", "pmh4-40") or
                 result.get("dailySchema") != "day2-56" or result.get("dayPolicy") != "unknown" or
                 not _hex(result.get("deviceId"), 12) or not _hex(result.get("generation"), 32) or
                 not _hex(result.get("bootEpoch"), 16) or result.get("enabled") is not True or result.get("ready") is not True):
@@ -97,11 +106,19 @@ class Source:
         return {"interfaceUrl": url, "saved": True}
 
     def page(self, manifest, kind, before="latest"):
-        raw, headers = self.request({"X-Archive-Kind": kind, "X-Archive-Before": before,
-            "X-Archive-Epoch": manifest["bootEpoch"], "X-Archive-Generation": manifest["generation"]})
+        # pmh4-40 minute pages are 24+64*40 = 2584 bytes; the reader bound must
+        # cover them while still rejecting unbounded bodies.
+        extended = kind == "minute" and "pmh5-42" in manifest.get("minuteSchemas", [])
+        request_headers = {"X-Archive-Kind": kind, "X-Archive-Before": before,
+            "X-Archive-Epoch": manifest["bootEpoch"], "X-Archive-Generation": manifest["generation"]}
+        if extended: request_headers["X-Archive-Minute-Schema"] = "pmh5-42"
+        raw, headers = self.request(request_headers, maximum=2720 if extended else 2600)
         if headers.get("x-archive-epoch") != manifest["bootEpoch"] or headers.get("x-archive-generation") != manifest["generation"]:
             raise ArchiveError("source changed while reading a page")
-        return decode_page(raw, kind)
+        decoded = decode_page(raw, kind)
+        if extended and raw[7] != 42:
+            raise ArchiveError('source ignored requested minute schema')
+        return decoded
 
     def live(self, manifest):
         if manifest.get("liveRead") is not True:

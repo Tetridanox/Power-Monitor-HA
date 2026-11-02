@@ -1,8 +1,9 @@
-import {ensureDashboard} from './dashboard-setup.js?v=1.0.236';
-import {t,technical,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.236';
+import INVERTER_PROFILES from './inverter-catalog.js?v=1.0.250';
+import {ensureDashboard} from './dashboard-setup.js?v=1.0.250';
+import {archiveSourceText,t,technical,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.250';
 /* Native HA panel. All data travels over the authenticated HA connection. */
-import './dashboard.js?v=1.0.236';
-import './insights-card.js?v=1.0.236';
+import './dashboard.js?v=1.0.250';
+import './insights-card.js?v=1.0.250';
 const PM_SERIES=[
   {id:'load',name:'Потребление',color:'#57b5f5'},
   {id:'grid',name:'Из сети',color:'#f2b44c'},
@@ -11,19 +12,26 @@ const PM_SERIES=[
   {id:'batteryDischarge',name:'Разряд батареи',color:'#f38596'}
 ];
 for(const s of PM_SERIES){s.field=s.id+'Power';s.unit='Вт';s.source=s.id.startsWith('battery')?'battery':'inverter'}
+const PM_MPPT_POWER=[
+ {id:'pv1',field:'pv1Power',name:'PV1',color:'#ffca5c',unit:'Вт',source:'inverter',optionalPower:true},
+ {id:'pv2',field:'pv2Power',name:'PV2',color:'#a4d96c',unit:'Вт',source:'inverter',optionalPower:true}
+];
 const PM_EXTRA=[
  {id:'pvVoltage',field:'pvVoltage',name:'Напряжение PV',color:'#28d5e6',unit:'В',source:'inverter'},
  {id:'inverterTemperature',field:'inverterTemperature',name:'Температура инвертора',color:'#ff7043',unit:'°C',source:'inverter'},
  {id:'gridVoltage',field:'gridVoltage',name:'Напряжение сети',color:'#f2b44c',unit:'В',source:'inverter'},
  {id:'outputVoltage',field:'outputVoltage',name:'Выходное напряжение',color:'#57b5f5',unit:'В',source:'inverter'},
  {id:'batteryVoltage',field:'batteryVoltage',name:'Напряжение батареи',color:'#b994f6',unit:'В',source:'battery'},
- {id:'soc',field:'soc',name:'Заряд батареи',color:'#53cc9b',unit:'%',source:'battery'}
+ {id:'soc',field:'soc',name:'Заряд батареи',color:'#53cc9b',unit:'%',source:'battery'},
+ // Второй MPPT Growatt SPF: в power-группу по умолчанию не входит,
+ // включается в режиме voltage или легендой, как другие overlays.
+ {id:'pv2Voltage',field:'pv2Voltage',name:'Напряжение PV2',color:'#ba68c8',unit:'В',source:'inverter'}
 ];
-const PM_GROUPS={power:[...PM_SERIES,...PM_EXTRA.slice(0,2)],energy:PM_SERIES,
+const PM_GROUPS={power:[...PM_SERIES,...PM_MPPT_POWER,...PM_EXTRA.slice(0,2),PM_EXTRA.find(s=>s.id==='pv2Voltage')],energy:PM_SERIES,
  voltage:PM_EXTRA.filter(s=>s.unit==='В'),temperature:PM_EXTRA.filter(s=>s.unit==='°C'),soc:PM_EXTRA.filter(s=>s.unit==='%')};
 class PowerMonitorPanel extends HTMLElement {
   constructor() {
-    super(); this.attachShadow({mode:'open'}); this._devices=[]; this._busy=false;this._visible=new Set([...PM_SERIES,...PM_EXTRA].map(s=>s.id));this._powerExtras=new Set();
+    super(); this.attachShadow({mode:'open'}); this._devices=[]; this._busy=false;this._visible=new Set([...PM_SERIES,...PM_MPPT_POWER,...PM_EXTRA].map(s=>s.id));this._powerExtras=new Set();
   }
   set hass(hass) {
     setProfileLanguage(hass.locale?.language||hass.language);this._hass=hass;
@@ -50,13 +58,13 @@ class PowerMonitorPanel extends HTMLElement {
       #plot{outline:none}#plot.keyboard-focus{outline:2px solid var(--primary-color);outline-offset:2px}
       </style><div class="toolbar"><button id="menu" class="menu" aria-label="Открыть меню" data-pm-i18n-aria-label="%D0%9E%D1%82%D0%BA%D1%80%D1%8B%D1%82%D1%8C%20%D0%BC%D0%B5%D0%BD%D1%8E">☰</button><img class="brand" src="/power_monitor_archive/brand.svg" alt=""><strong>Power Monitor</strong></div>
       <main><div class="title"><div><h1>Power Monitor</h1><div class="muted"><!--pm-i18n:%D0%9F%D0%BE%D0%BA%D0%B0%D0%B7%D0%B0%D0%BD%D0%B8%D1%8F%20%D0%B8%20%D0%B0%D1%80%D1%85%D0%B8%D0%B2%20%D0%BD%D0%B0%20%D0%B2%D0%B0%D1%88%D0%B5%D0%BC%20Home%20Assistant-->Показания и архив на вашем Home Assistant</div></div><div class="row"><button id="create-dashboard" class="primary"><!--pm-i18n:%D0%A1%D0%BE%D0%B7%D0%B4%D0%B0%D1%82%D1%8C%20YAML-%D0%B4%D0%B0%D1%88%D0%B1%D0%BE%D1%80%D0%B4-->Создать YAML-дашборд</button><button id="add"><!--pm-i18n:%D0%94%D0%BE%D0%B1%D0%B0%D0%B2%D0%B8%D1%82%D1%8C%20%D1%83%D1%81%D1%82%D1%80%D0%BE%D0%B9%D1%81%D1%82%D0%B2%D0%BE-->Добавить устройство</button></div><p id="dashboard-result" role="status"></p></div>
-      <section id="empty" class="card hidden"><h2><!--pm-i18n:%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D0%B5%20%D0%B2%D0%B0%D1%88%20Power%20Monitor-->Подключите ваш Power Monitor</h2><p><!--pm-i18n:1.%20%D0%9D%D0%B0%20ESP%20%D0%BE%D1%82%D0%BA%D1%80%D0%BE%D0%B9%D1%82%D0%B5%20-->1. На ESP откройте <strong><!--pm-i18n:Home%20Assistant%20%E2%86%92%20%D0%A3%D0%B2%D1%96%D0%BC%D0%BA%D0%BD%D1%83%D1%82%D0%B8%20%D1%96%D0%BD%D1%82%D0%B5%D0%B3%D1%80%D0%B0%D1%86%D1%96%D1%8E%20%E2%86%92%20%D0%9E%D1%82%D1%80%D0%B8%D0%BC%D0%B0%D1%82%D0%B8%20%D0%BA%D0%BE%D0%B4%20%D0%BD%D0%B0%202%20%D1%85%D0%B2%D0%B8%D0%BB%D0%B8%D0%BD%D0%B8-->Home Assistant → Увімкнути інтеграцію → Отримати код на 2 хвилини</strong><!--pm-i18n:%20%D0%B8%20%D1%81%D0%BA%D0%BE%D0%BF%D0%B8%D1%80%D1%83%D0%B9%D1%82%D0%B5%20%D0%BA%D0%BE%D0%B4.--> и скопируйте код.</p><p><!--pm-i18n:2.%20%D0%9D%D0%B0%D0%B6%D0%BC%D0%B8%D1%82%D0%B5%20%C2%AB%D0%94%D0%BE%D0%B1%D0%B0%D0%B2%D0%B8%D1%82%D1%8C%20%D1%83%D1%81%D1%82%D1%80%D0%BE%D0%B9%D1%81%D1%82%D0%B2%D0%BE%C2%BB%20%D0%B7%D0%B4%D0%B5%D1%81%D1%8C%20%D0%B8%20%D0%B2%D1%81%D1%82%D0%B0%D0%B2%D1%8C%D1%82%D0%B5%20%D0%BA%D0%BE%D0%B4%20%D0%B2%20%D0%BE%D0%BA%D0%BD%D0%BE%20Home%20Assistant.-->2. Нажмите «Добавить устройство» здесь и вставьте код в окно Home Assistant.</p><p><!--pm-i18n:%D0%98%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%8F%20%D0%B7%D0%B0%D0%B3%D1%80%D1%83%D0%B7%D0%B8%D1%82%D1%81%D1%8F%20%D0%B0%D0%B2%D1%82%D0%BE%D0%BC%D0%B0%D1%82%D0%B8%D1%87%D0%B5%D1%81%D0%BA%D0%B8.%20%D0%94%D0%BB%D1%8F%20%D0%BF%D1%80%D0%BE%D1%81%D0%BC%D0%BE%D1%82%D1%80%D0%B0%20%D0%B8%D1%81%D0%BF%D0%BE%D0%BB%D1%8C%D0%B7%D1%83%D0%B9%D1%82%D0%B5%20%D1%8D%D1%82%D0%BE%D1%82%20%D1%80%D0%B0%D0%B7%D0%B4%D0%B5%D0%BB%20%E2%80%94%20%D0%BE%D1%82%D0%B4%D0%B5%D0%BB%D1%8C%D0%BD%D1%8B%D0%B9%20%D0%B0%D0%B4%D1%80%D0%B5%D1%81%20%D0%B8%D0%BB%D0%B8%20%D0%BF%D0%B0%D1%80%D0%BE%D0%BB%D1%8C%20%D0%BD%D0%B5%20%D0%BD%D1%83%D0%B6%D0%BD%D1%8B.-->История загрузится автоматически. Для просмотра используйте этот раздел — отдельный адрес или пароль не нужны.</p></section>
+      <section id="empty" class="card hidden"><h2><!--pm-i18n:%D0%9F%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D0%B5%20%D0%B2%D0%B0%D1%88%20Power%20Monitor-->Подключите ваш Power Monitor</h2><p><!--pm-i18n:1.%20%D0%9D%D0%B0%20ESP%20%D0%BE%D1%82%D0%BA%D1%80%D0%BE%D0%B9%D1%82%D0%B5%20-->1. На ESP откройте <strong><!--pm-i18n:Home%20Assistant%20%E2%86%92%20%D0%A3%D0%B2%D1%96%D0%BC%D0%BA%D0%BD%D1%83%D1%82%D0%B8%20%D1%96%D0%BD%D1%82%D0%B5%D0%B3%D1%80%D0%B0%D1%86%D1%96%D1%8E%20%E2%86%92%20%D0%9E%D1%82%D1%80%D0%B8%D0%BC%D0%B0%D1%82%D0%B8%20%D0%BA%D0%BE%D0%B4%20%D0%BD%D0%B0%202%20%D1%85%D0%B2%D0%B8%D0%BB%D0%B8%D0%BD%D0%B8-->Home Assistant → Увімкнути інтеграцію → Отримати код на 2 хвилини</strong><!--pm-i18n:%20%D0%B8%20%D1%81%D0%BA%D0%BE%D0%BF%D0%B8%D1%80%D1%83%D0%B9%D1%82%D0%B5%20%D0%BA%D0%BE%D0%B4.--> и скопируйте код.</p><p><!--pm-i18n:2.%20%D0%9D%D0%B0%D0%B6%D0%BC%D0%B8%D1%82%D0%B5%20%C2%AB%D0%94%D0%BE%D0%B1%D0%B0%D0%B2%D0%B8%D1%82%D1%8C%20%D1%83%D1%81%D1%82%D1%80%D0%BE%D0%B9%D1%81%D1%82%D0%B2%D0%BE%C2%BB%20%D0%B7%D0%B4%D0%B5%D1%81%D1%8C%20%D0%B8%20%D0%B2%D1%81%D1%82%D0%B0%D0%B2%D1%8C%D1%82%D0%B5%20%D0%BA%D0%BE%D0%B4%20%D0%B2%20%D0%BE%D0%BA%D0%BD%D0%BE%20Home%20Assistant.-->2. Нажмите «Добавить устройство» здесь и вставьте код в окно Home Assistant.</p></section>
       <section id="archive" class="card"><div class="row"><label class="grow"><!--pm-i18n:%D0%A3%D1%81%D1%82%D1%80%D0%BE%D0%B9%D1%81%D1%82%D0%B2%D0%BE-->Устройство<select id="device"></select></label><button id="resume" class="hidden"><!--pm-i18n:%D0%9F%D1%80%D0%BE%D0%B2%D0%B5%D1%80%D0%B8%D1%82%D1%8C%20%D0%BF%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-->Проверить подключение</button></div><div id="summary" class="notice" role="status"></div><div id="coverage" class="muted"></div></section>
       <nav class="row" aria-label="Разделы Power Monitor" data-pm-i18n-aria-label="%D0%A0%D0%B0%D0%B7%D0%B4%D0%B5%D0%BB%D1%8B%20Power%20Monitor" style="margin:20px 0"><button id="tab-overview" aria-pressed="true"><!--pm-i18n:%D0%9E%D0%B1%D0%B7%D0%BE%D1%80-->Обзор</button><button id="tab-history" aria-pressed="false"><!--pm-i18n:%D0%98%D1%81%D1%82%D0%BE%D1%80%D0%B8%D1%8F-->История</button><button id="tab-insights" type="button">Аналитика</button><button id="tab-interface" aria-pressed="false"><!--pm-i18n:%D0%98%D0%BD%D1%82%D0%B5%D1%80%D1%84%D0%B5%D0%B9%D1%81-->Интерфейс</button><a id="local" target="_blank" rel="noopener noreferrer"><!--pm-i18n:%D0%9E%D1%82%D0%BA%D1%80%D1%8B%D1%82%D1%8C%20ESP%20%D0%BB%D0%BE%D0%BA%D0%B0%D0%BB%D1%8C%D0%BD%D0%BE-->Открыть ESP локально</a></nav>
       <power-monitor-dashboard id="overview"></power-monitor-dashboard><power-monitor-insights-card id="insights" class="hidden"></power-monitor-insights-card>
-      <section id="interface" class="card hidden"><h2><!--pm-i18n:%D0%93%D0%B4%D0%B5%20%D0%BE%D1%82%D0%BA%D1%80%D1%8B%D0%B2%D0%B0%D1%82%D1%8C%20%D0%B8%D0%BD%D1%82%D0%B5%D1%80%D1%84%D0%B5%D0%B9%D1%81-->Где открывать интерфейс</h2><p><!--pm-i18n:%D0%92%D1%8B%D0%B1%D0%BE%D1%80%20%D1%81%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D1%8F%D0%B5%D1%82%D1%81%D1%8F%20%D0%BD%D0%B0%20ESP.-->Выбор сохраняется на ESP.</p><div class="row"><label><!--pm-i18n:%D0%9E%D1%81%D0%BD%D0%BE%D0%B2%D0%BD%D0%BE%D0%B9%20%D0%B8%D0%BD%D1%82%D0%B5%D1%80%D1%84%D0%B5%D0%B9%D1%81-->Основной интерфейс<select id="interface-mode"><option value="esp"><!--pm-i18n:%D0%9D%D0%B0%20ESP-->На ESP</option><option value="ha"><!--pm-i18n:%D0%92%20Home%20Assistant-->В Home Assistant</option></select></label><button id="interface-save" class="primary"><!--pm-i18n:%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B8%D1%82%D1%8C%20%D0%BD%D0%B0%20ESP-->Сохранить на ESP</button></div><p id="interface-result" role="status"></p><p id="interface-permission" class="muted"></p><label><!--pm-i18n:%D0%90%D0%B4%D1%80%D0%B5%D1%81%20%D1%8D%D1%82%D0%BE%D0%B9%20%D0%BF%D0%B0%D0%BD%D0%B5%D0%BB%D0%B8-->Адрес этой панели<input id="interface-url" readonly></label><p class="muted"><!--pm-i18n:%D0%A1%D0%BA%D0%BE%D0%BF%D0%B8%D1%80%D1%83%D0%B9%D1%82%D0%B5%20%D1%8D%D1%82%D0%BE%D1%82%20%D0%B0%D0%B4%D1%80%D0%B5%D1%81%20%D0%B2%20%D0%BD%D0%B0%D1%81%D1%82%D1%80%D0%BE%D0%B9%D0%BA%D1%83%20%D0%B8%D0%BD%D1%82%D0%B5%D1%80%D1%84%D0%B5%D0%B9%D1%81%D0%B0%20%D0%BD%D0%B0%20ESP%2C%20%D0%B5%D1%81%D0%BB%D0%B8%20%D1%85%D0%BE%D1%82%D0%B8%D1%82%D0%B5%20%D0%BF%D0%B5%D1%80%D0%B5%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D1%8C%20%D0%B2%D1%85%D0%BE%D0%B4%20%D0%BE%D1%82%D1%82%D1%83%D0%B4%D0%B0.%20%D0%90%D0%B2%D0%B0%D1%80%D0%B8%D0%B9%D0%BD%D1%8B%D0%B9%20%D0%B2%D1%85%D0%BE%D0%B4%20%2Flocal%2F%20%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D0%B0%D0%B5%D1%82%20%D0%BD%D0%B5%D0%B7%D0%B0%D0%B2%D0%B8%D1%81%D0%B8%D0%BC%D0%BE%20%D0%BE%D1%82%20HA.-->Скопируйте этот адрес в настройку интерфейса на ESP, если хотите переключить вход оттуда. Аварийный вход /local/ работает независимо от HA.</p></section>
-      <section id="charts" class="card"><h2><!--pm-i18n:%D0%93%D1%80%D0%B0%D1%84%D0%B8%D0%BA%D0%B8-->Графики</h2><div class="row"><label><!--pm-i18n:%D0%A7%D1%82%D0%BE%20%D0%BF%D0%BE%D0%BA%D0%B0%D0%B7%D0%B0%D1%82%D1%8C-->Что показать<select id="mode"><option value="power"><!--pm-i18n:%D0%9F%D0%BE%D1%82%D0%BE%D0%BA%20%D1%8D%D0%BD%D0%B5%D1%80%D0%B3%D0%B8%D0%B8-->Поток энергии</option><option value="energy"><!--pm-i18n:%D0%AD%D0%BD%D0%B5%D1%80%D0%B3%D0%B8%D1%8F%20%D0%BF%D0%BE%20%D0%B4%D0%BD%D1%8F%D0%BC-->Энергия по дням</option><option value="voltage"><!--pm-i18n:%D0%9D%D0%B0%D0%BF%D1%80%D1%8F%D0%B6%D0%B5%D0%BD%D0%B8%D1%8F-->Напряжения</option><option value="temperature"><!--pm-i18n:%D0%A2%D0%B5%D0%BC%D0%BF%D0%B5%D1%80%D0%B0%D1%82%D1%83%D1%80%D0%B0%20%D0%B8%D0%BD%D0%B2%D0%B5%D1%80%D1%82%D0%BE%D1%80%D0%B0-->Температура инвертора</option><option value="soc"><!--pm-i18n:%D0%97%D0%B0%D1%80%D1%8F%D0%B4%20%D0%B1%D0%B0%D1%82%D0%B0%D1%80%D0%B5%D0%B8%20%C2%B7%20SOC-->Заряд батареи · SOC</option></select></label><label><!--pm-i18n:%D0%9F%D0%BE%D0%BA%D0%B0%D0%B7%D0%B0%D1%82%D0%B5%D0%BB%D0%B8-->Показатели<select id="metric"><option value="all"><!--pm-i18n:%D0%92%D1%81%D0%B5%20%D0%BF%D0%BE%D1%82%D0%BE%D0%BA%D0%B8%20%D1%8D%D0%BD%D0%B5%D1%80%D0%B3%D0%B8%D0%B8-->Все потоки энергии</option><option value="load"><!--pm-i18n:%D0%9F%D0%BE%D1%82%D1%80%D0%B5%D0%B1%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5-->Потребление</option><option value="grid"><!--pm-i18n:%D0%98%D0%B7%20%D1%81%D0%B5%D1%82%D0%B8-->Из сети</option><option value="pv"><!--pm-i18n:%D0%A1%D0%BE%D0%BB%D0%BD%D0%B5%D1%87%D0%BD%D0%B0%D1%8F%20%D0%B3%D0%B5%D0%BD%D0%B5%D1%80%D0%B0%D1%86%D0%B8%D1%8F-->Солнечная генерация</option><option value="batteryCharge"><!--pm-i18n:%D0%97%D0%B0%D1%80%D1%8F%D0%B4%20%D0%B1%D0%B0%D1%82%D0%B0%D1%80%D0%B5%D0%B8-->Заряд батареи</option><option value="batteryDischarge"><!--pm-i18n:%D0%A0%D0%B0%D0%B7%D1%80%D1%8F%D0%B4%20%D0%B1%D0%B0%D1%82%D0%B0%D1%80%D0%B5%D0%B8-->Разряд батареи</option></select></label><label><!--pm-i18n:%D0%9F%D0%B5%D1%80%D0%B8%D0%BE%D0%B4-->Период<select id="period"><option value="1"><!--pm-i18n:24%20%D1%87%D0%B0%D1%81%D0%B0-->24 часа</option><option value="7"><!--pm-i18n:7%20%D0%B4%D0%BD%D0%B5%D0%B9-->7 дней</option><option value="30"><!--pm-i18n:30%20%D0%B4%D0%BD%D0%B5%D0%B9-->30 дней</option><option value="365"><!--pm-i18n:%D0%93%D0%BE%D0%B4-->Год</option><option value="all"><!--pm-i18n:%D0%92%D0%B5%D1%81%D1%8C%20%D1%81%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D1%91%D0%BD%D0%BD%D1%8B%D0%B9%20%D0%BF%D0%B5%D1%80%D0%B8%D0%BE%D0%B4-->Весь сохранённый период</option><option value="custom"><!--pm-i18n:%D0%92%D1%8B%D0%B1%D1%80%D0%B0%D1%82%D1%8C%20%D0%B4%D0%B0%D1%82%D1%8B-->Выбрать даты</option></select></label><label><!--pm-i18n:%D0%A1-->С<input type="date" id="from"></label><label><!--pm-i18n:%D0%9F%D0%BE-->По<input type="date" id="to"></label><button id="show" class="primary"><!--pm-i18n:%D0%9F%D0%BE%D0%BA%D0%B0%D0%B7%D0%B0%D1%82%D1%8C-->Показать</button><button id="csv"><!--pm-i18n:CSV%20%D0%B3%D1%80%D0%B0%D1%84%D0%B8%D0%BA%D0%B0-->CSV графика</button></div><div id="stats" class="stats"></div><div class="period-heading"><strong id="range"></strong><div class="zoom"><button id="zoom-reset" aria-label="Сбросить масштаб">↺</button><button id="zoom-in" aria-label="Приблизить период" data-pm-i18n-aria-label="%D0%9F%D1%80%D0%B8%D0%B1%D0%BB%D0%B8%D0%B7%D0%B8%D1%82%D1%8C%20%D0%BF%D0%B5%D1%80%D0%B8%D0%BE%D0%B4">＋</button><button id="zoom-out" aria-label="Отдалить период" data-pm-i18n-aria-label="%D0%9E%D1%82%D0%B4%D0%B0%D0%BB%D0%B8%D1%82%D1%8C%20%D0%BF%D0%B5%D1%80%D0%B8%D0%BE%D0%B4">−</button></div></div><div id="legend" class="legend"></div><p id="message" role="status" class="muted"></p><div class="plot-wrap"><svg id="plot" viewBox="0 0 1100 380" role="img" aria-label="График сохранённой истории" data-pm-i18n-aria-label="%D0%93%D1%80%D0%B0%D1%84%D0%B8%D0%BA%20%D1%81%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D1%91%D0%BD%D0%BD%D0%BE%D0%B9%20%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D0%B8" tabindex="0"></svg><div id="tooltip" class="tooltip hidden"></div></div><div class="chart-help muted"><span id="gap-info"></span></div></section>
-      <details class="details"><summary><!--pm-i18n:%D0%9E%20%D1%85%D1%80%D0%B0%D0%BD%D0%B5%D0%BD%D0%B8%D0%B8%20%D0%B8%20%D0%BF%D0%BE%D0%BB%D0%BD%D0%BE%D1%82%D0%B5%20%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D0%B8-->О хранении и полноте истории</summary><p><!--pm-i18n:%D0%90%D1%80%D1%85%D0%B8%D0%B2%20%D0%BD%D0%B0%D1%85%D0%BE%D0%B4%D0%B8%D1%82%D1%81%D1%8F%20%D0%B2%20Home%20Assistant%20%D0%B8%20%D0%B4%D0%BE%D1%81%D1%82%D1%83%D0%BF%D0%B5%D0%BD%20%D0%BF%D1%80%D0%B8%20%D0%B2%D1%8B%D0%BA%D0%BB%D1%8E%D1%87%D0%B5%D0%BD%D0%BD%D0%BE%D0%B9%20ESP.%20%D0%97%D0%B0%D0%BF%D0%B8%D1%81%D0%B8%20%D1%81%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D1%8F%D1%8E%D1%82%D1%81%D1%8F%20%D0%B1%D0%B5%D0%B7%20%D0%B0%D0%B2%D1%82%D0%BE%D0%BC%D0%B0%D1%82%D0%B8%D1%87%D0%B5%D1%81%D0%BA%D0%BE%D0%B3%D0%BE%20%D1%83%D0%B4%D0%B0%D0%BB%D0%B5%D0%BD%D0%B8%D1%8F.%20%D0%A1%D1%80%D0%B5%D0%B4%D0%BD%D1%8F%D1%8F%20%D0%BC%D0%BE%D1%89%D0%BD%D0%BE%D1%81%D1%82%D1%8C%20%D1%80%D0%B0%D1%81%D1%81%D1%87%D0%B8%D1%82%D0%B0%D0%BD%D0%B0%20%D0%BF%D0%BE%20%D1%81%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D1%91%D0%BD%D0%BD%D1%8B%D0%BC%20%D0%B8%D0%B7%D0%BC%D0%B5%D1%80%D0%B5%D0%BD%D0%B8%D1%8F%D0%BC%2C%20%D1%8D%D0%BD%D0%B5%D1%80%D0%B3%D0%B8%D1%8F%20%E2%80%94%20%D0%BF%D0%BE%20%D1%81%D1%83%D1%82%D0%BE%D1%87%D0%BD%D1%8B%D0%BC%20%D0%B8%D1%82%D0%BE%D0%B3%D0%B0%D0%BC%20ESP.%20%D0%9F%D1%80%D0%BE%D0%BF%D1%83%D1%81%D0%BA%D0%B8%20%D0%BD%D0%B5%20%D0%B7%D0%B0%D0%BC%D0%B5%D0%BD%D1%8F%D1%8E%D1%82%D1%81%D1%8F%20%D0%BD%D1%83%D0%BB%D1%8F%D0%BC%D0%B8.%20%D0%A1%D0%B5%D0%B3%D0%BE%D0%B4%D0%BD%D1%8F%D1%88%D0%BD%D0%B8%D0%B9%20%D0%B8%D1%82%D0%BE%D0%B3%20%D0%B5%D1%89%D1%91%20%D1%83%D1%82%D0%BE%D1%87%D0%BD%D1%8F%D0%B5%D1%82%D1%81%D1%8F.-->Архив находится в Home Assistant и доступен при выключенной ESP. Записи сохраняются без автоматического удаления. Средняя мощность рассчитана по сохранённым измерениям, энергия — по суточным итогам ESP. Пропуски не заменяются нулями. Сегодняшний итог ещё уточняется.</p></details></main>`);
+      <section id="interface" class="card hidden"><h2><!--pm-i18n:%D0%93%D0%B4%D0%B5%20%D0%BE%D1%82%D0%BA%D1%80%D1%8B%D0%B2%D0%B0%D1%82%D1%8C%20%D0%B8%D0%BD%D1%82%D0%B5%D1%80%D1%84%D0%B5%D0%B9%D1%81-->Где открывать интерфейс</h2><div class="row"><label><!--pm-i18n:%D0%9E%D1%81%D0%BD%D0%BE%D0%B2%D0%BD%D0%BE%D0%B9%20%D0%B8%D0%BD%D1%82%D0%B5%D1%80%D1%84%D0%B5%D0%B9%D1%81-->Основной интерфейс<select id="interface-mode"><option value="esp"><!--pm-i18n:%D0%9D%D0%B0%20ESP-->На ESP</option><option value="ha"><!--pm-i18n:%D0%92%20Home%20Assistant-->В Home Assistant</option></select></label><button id="interface-save" class="primary"><!--pm-i18n:%D0%A1%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D0%B8%D1%82%D1%8C%20%D0%BD%D0%B0%20ESP-->Сохранить на ESP</button></div><p id="interface-result" role="status"></p><p id="interface-permission" class="muted"></p><label><!--pm-i18n:%D0%90%D0%B4%D1%80%D0%B5%D1%81%20%D1%8D%D1%82%D0%BE%D0%B9%20%D0%BF%D0%B0%D0%BD%D0%B5%D0%BB%D0%B8-->Адрес этой панели<input id="interface-url" readonly></label></section>
+      <section id="charts" class="card"><h2><!--pm-i18n:%D0%93%D1%80%D0%B0%D1%84%D0%B8%D0%BA%D0%B8-->Графики</h2><div class="row"><label><!--pm-i18n:%D0%A7%D1%82%D0%BE%20%D0%BF%D0%BE%D0%BA%D0%B0%D0%B7%D0%B0%D1%82%D1%8C-->Что показать<select id="mode"><option value="power"><!--pm-i18n:%D0%9F%D0%BE%D1%82%D0%BE%D0%BA%20%D1%8D%D0%BD%D0%B5%D1%80%D0%B3%D0%B8%D0%B8-->Поток энергии</option><option value="energy"><!--pm-i18n:%D0%AD%D0%BD%D0%B5%D1%80%D0%B3%D0%B8%D1%8F%20%D0%BF%D0%BE%20%D0%B4%D0%BD%D1%8F%D0%BC-->Энергия по дням</option><option value="voltage"><!--pm-i18n:%D0%9D%D0%B0%D0%BF%D1%80%D1%8F%D0%B6%D0%B5%D0%BD%D0%B8%D1%8F-->Напряжения</option><option value="temperature"><!--pm-i18n:%D0%A2%D0%B5%D0%BC%D0%BF%D0%B5%D1%80%D0%B0%D1%82%D1%83%D1%80%D0%B0%20%D0%B8%D0%BD%D0%B2%D0%B5%D1%80%D1%82%D0%BE%D1%80%D0%B0-->Температура инвертора</option><option value="soc"><!--pm-i18n:%D0%97%D0%B0%D1%80%D1%8F%D0%B4%20%D0%B1%D0%B0%D1%82%D0%B0%D1%80%D0%B5%D0%B8%20%C2%B7%20SOC-->Заряд батареи · SOC</option></select></label><label><!--pm-i18n:%D0%9F%D0%BE%D0%BA%D0%B0%D0%B7%D0%B0%D1%82%D0%B5%D0%BB%D0%B8-->Показатели<select id="metric"><option value="all"><!--pm-i18n:%D0%92%D1%81%D0%B5%20%D0%BF%D0%BE%D1%82%D0%BE%D0%BA%D0%B8%20%D1%8D%D0%BD%D0%B5%D1%80%D0%B3%D0%B8%D0%B8-->Все потоки энергии</option><option value="load"><!--pm-i18n:%D0%9F%D0%BE%D1%82%D1%80%D0%B5%D0%B1%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5-->Потребление</option><option value="grid"><!--pm-i18n:%D0%98%D0%B7%20%D1%81%D0%B5%D1%82%D0%B8-->Из сети</option><option value="pv"><!--pm-i18n:%D0%A1%D0%BE%D0%BB%D0%BD%D0%B5%D1%87%D0%BD%D0%B0%D1%8F%20%D0%B3%D0%B5%D0%BD%D0%B5%D1%80%D0%B0%D1%86%D0%B8%D1%8F-->Солнечная генерация</option><option value="batteryCharge"><!--pm-i18n:%D0%97%D0%B0%D1%80%D1%8F%D0%B4%20%D0%B1%D0%B0%D1%82%D0%B0%D1%80%D0%B5%D0%B8-->Заряд батареи</option><option value="batteryDischarge"><!--pm-i18n:%D0%A0%D0%B0%D0%B7%D1%80%D1%8F%D0%B4%20%D0%B1%D0%B0%D1%82%D0%B0%D1%80%D0%B5%D0%B8-->Разряд батареи</option></select></label><label><!--pm-i18n:%D0%9F%D0%B5%D1%80%D0%B8%D0%BE%D0%B4-->Период<select id="period"><option value="1"><!--pm-i18n:24%20%D1%87%D0%B0%D1%81%D0%B0-->24 часа</option><option value="7"><!--pm-i18n:7%20%D0%B4%D0%BD%D0%B5%D0%B9-->7 дней</option><option value="30"><!--pm-i18n:30%20%D0%B4%D0%BD%D0%B5%D0%B9-->30 дней</option><option value="365"><!--pm-i18n:%D0%93%D0%BE%D0%B4-->Год</option><option value="all"><!--pm-i18n:%D0%92%D0%B5%D1%81%D1%8C%20%D1%81%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D1%91%D0%BD%D0%BD%D1%8B%D0%B9%20%D0%BF%D0%B5%D1%80%D0%B8%D0%BE%D0%B4-->Весь сохранённый период</option><option value="custom"><!--pm-i18n:%D0%92%D1%8B%D0%B1%D1%80%D0%B0%D1%82%D1%8C%20%D0%B4%D0%B0%D1%82%D1%8B-->Выбрать даты</option></select></label><label><!--pm-i18n:%D0%A1-->С<input type="date" id="from"></label><label><!--pm-i18n:%D0%9F%D0%BE-->По<input type="date" id="to"></label><button id="show" class="primary"><!--pm-i18n:%D0%9F%D0%BE%D0%BA%D0%B0%D0%B7%D0%B0%D1%82%D1%8C-->Показать</button><button id="csv"><!--pm-i18n:CSV%20%D0%B3%D1%80%D0%B0%D1%84%D0%B8%D0%BA%D0%B0-->CSV графика</button></div><div id="external-archive" class="muted" role="status"></div><div id="stats" class="stats"></div><div class="period-heading"><strong id="range"></strong><div class="zoom"><button id="zoom-reset" aria-label="Сбросить масштаб">↺</button><button id="zoom-in" aria-label="Приблизить период" data-pm-i18n-aria-label="%D0%9F%D1%80%D0%B8%D0%B1%D0%BB%D0%B8%D0%B7%D0%B8%D1%82%D1%8C%20%D0%BF%D0%B5%D1%80%D0%B8%D0%BE%D0%B4">＋</button><button id="zoom-out" aria-label="Отдалить период" data-pm-i18n-aria-label="%D0%9E%D1%82%D0%B4%D0%B0%D0%BB%D0%B8%D1%82%D1%8C%20%D0%BF%D0%B5%D1%80%D0%B8%D0%BE%D0%B4">−</button></div></div><div id="legend" class="legend"></div><p id="message" role="status" class="muted"></p><div class="plot-wrap"><svg id="plot" viewBox="0 0 1100 380" role="img" aria-label="График сохранённой истории" data-pm-i18n-aria-label="%D0%93%D1%80%D0%B0%D1%84%D0%B8%D0%BA%20%D1%81%D0%BE%D1%85%D1%80%D0%B0%D0%BD%D1%91%D0%BD%D0%BD%D0%BE%D0%B9%20%D0%B8%D1%81%D1%82%D0%BE%D1%80%D0%B8%D0%B8" tabindex="0"></svg><div id="tooltip" class="tooltip hidden"></div></div><div class="chart-help muted"><span id="gap-info"></span></div></section>
+      </main>`);
     this._view=new URLSearchParams(location.search).has('manage')?'interface':'overview';
     this.el('create-dashboard').onclick=()=>this.createDashboard();
     for(const name of ['overview','history','interface','insights'])this.el('tab-'+name).onclick=()=>this.showView(name);
@@ -89,6 +97,8 @@ class PowerMonitorPanel extends HTMLElement {
     const requested=new URLSearchParams(location.search).get('view');if(['overview','history','interface','insights'].includes(requested))this._view=requested;
     this.refresh();this._timer=setInterval(()=>{if(!document.hidden)this.refresh()},60000);this._currentTimer=setInterval(()=>{if(!document.hidden&&this._view==='overview')this.refreshCurrent()},5000);
   }
+  updateArchiveSource(data){const node=this.el('external-archive');if(node){setText(node,()=>archiveSourceText(data?.externalArchive));node.hidden=!node.textContent}}
+  historySourceKey(data){const state=data?.externalArchive;return state?.configured?[state.backend??state.source,Boolean(state.available),state.archiveId??''].join(':'):'local'}
   dateInput(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
   showError(error){setText(this.el('message'),()=>t('Не удалось прочитать архив. Попробуйте обновить страницу.'));console.warn('Power Monitor archive:',error?.code||'unavailable')}
   async refresh(){
@@ -103,10 +113,10 @@ class PowerMonitorPanel extends HTMLElement {
       if(s.devices.length)this.showView(this._view||'overview');
       if(!s.devices.length)return;
       const d=s.devices.find(d=>d.deviceId===this.el('device').value);this._device=d;this.el('insights').setConfig({device:d.deviceId});this.el('insights').hass=this._hass;if(d.dashboardPath&&!this._embedded&&!new URLSearchParams(location.search).has('manage')){this.navigate('/'+d.dashboardPath);return}this.updateInterface(d);await this.refreshCurrent();const done=d.minuteBackfillComplete&&d.dailyBackfillComplete;
-      const messages={starting:t('Подключаемся к ESP…'),syncing:done?t('Доступная история ESP загружена. Новые данные сохраняются автоматически.'):t('Первая загрузка истории. Полученные данные уже доступны.'),grant_disabled_or_revoked:t('Доступ к ESP остановлен. Если вы выключали интеграцию на ESP, включите её и нажмите «Проверить подключение». Если доступ отозван, подключите устройство заново по новому коду. Сохранённые графики доступны.'),identity_changed_pairing_required:t('История устройства изменилась. Требуется повторное подключение. Прежний архив сохранён.'),source_or_storage_error:t('ESP или хранилище временно недоступны. Повторим загрузку автоматически.')};
+      const messages={starting:t('Подключаемся к ESP…'),syncing:done?'':t('Первая загрузка истории. Полученные данные уже доступны.'),grant_disabled_or_revoked:t('Доступ к ESP остановлен. Если вы выключали интеграцию на ESP, включите её и нажмите «Проверить подключение». Если доступ отозван, подключите устройство заново по новому коду. Сохранённые графики доступны.'),identity_changed_pairing_required:t('История устройства изменилась. Требуется повторное подключение. Прежний архив сохранён.'),source_or_storage_error:t('ESP или хранилище временно недоступны. Повторим загрузку автоматически.')};
       this.el('resume').classList.toggle('hidden',d.state!=='grant_disabled_or_revoked'||!!s.writerError);
-      setText(this.el('summary'),()=>s.writerError?t('Хранилище недоступно. Сохранённые данные не удалены.'):messages[d.state]||t('Повторяем соединение с ESP…'));
-      this._coverage=await this.api('coverage',{device:d.deviceId});const c=this._coverage;
+      setText(this.el('summary'),()=>s.writerError?t('Хранилище недоступно. Сохранённые данные не удалены.'):messages[d.state]??t('Повторяем соединение с ESP…'));this.el('summary').hidden=!this.el('summary').textContent;
+      this._coverage=await this.api('coverage',{device:d.deviceId});const c=this._coverage;this.updateArchiveSource(c);
       setText(this.el('coverage'),()=>`${t("История с ")}${c.firstDay?new Date(c.firstDay*1000).toLocaleDateString(locale()):t('первого сохранённого измерения')}${t(". Последняя связь: ")}${d.lastSuccess?new Date(d.lastSuccess*1000).toLocaleString():t('ожидается')}.`);
       if(this._view==='history'&&!this._gesture)await this.draw({navigation:!!this._plotData,live:true});
     }catch(e){this.showError(e)}finally{this._refreshing=false}
@@ -125,7 +135,7 @@ class PowerMonitorPanel extends HTMLElement {
   async refreshCurrent(){
     const device=this.el('device').value;if(!device||this._readingCurrent)return;
     this._readingCurrent=true;
-    try{const current=await this.api('current',{device});if(device===this.el('device').value)this.el('overview').readings=current}
+    try{const current=await this.api('current',{device});if(device===this.el('device').value){this._inverterCurrent=current;this.el('overview').readings=current}}
     catch(e){this.el('overview').readings={available:false}}
     finally{this._readingCurrent=false}
   }
@@ -136,7 +146,7 @@ class PowerMonitorPanel extends HTMLElement {
     this.el('interface-url').value=location.origin+'/power-monitor?device='+d.deviceId;
     if(!this._interfaceDirty)this.el('interface-mode').value=d.interfaceUrl?'ha':'esp';
     this.el('interface-save').disabled=!d.interfaceControl||this._savingInterface;
-    setText(this.el('interface-permission'),()=>d.interfaceControl?t('Локальная панель и запись истории ESP сохраняются в обоих режимах.'):d.interfaceSupported?t('Для переключения из HA получите новый код на ESP и перенастройте существующую интеграцию. Архив сохранится. Переключение также доступно локально на ESP.'):t('Для переключения основного входа обновите прошивку ESP до 1.0.170 или новее. Живой обзор и архив уже доступны здесь.'));
+    setText(this.el('interface-permission'),()=>d.interfaceControl?'':d.interfaceSupported?t('Для переключения из HA получите новый код на ESP и перенастройте существующую интеграцию. Архив сохранится. Переключение также доступно локально на ESP.'):t('Для переключения основного входа обновите прошивку ESP до 1.0.170 или новее. Живой обзор и архив уже доступны здесь.'));
   }
   async createDashboard(){
     if(this._creatingDashboard||!this._device)return;
@@ -167,7 +177,6 @@ class PowerMonitorPanel extends HTMLElement {
     this._redraw=false;this._redrawOptions=null;this._busy=true;this._drawingNavigation=!!options.navigation;
     try{
       const mode=this.el('mode').value,energy=mode==='energy',c=this._coverage||{},period=this.el('period').value;
-      const metric=this.el('metric'),selected=metric.value;metric.replaceChildren(...[{id:'all',name:t('Все показатели')},...PM_GROUPS[mode]].map(s=>{const o=document.createElement('option');o.value=s.id;setText(o,()=>t(s.name));return o}));metric.value=[...metric.options].some(o=>o.value===selected)?selected:'all';
       let end=Math.floor(Date.now()/1000)+1,start;
       if(period==='all'){start=(energy?c.firstDay:c.first)||end-86400;end=Math.max(end,(energy?c.lastDay:c.last)||0)+1}
       else if(period==='custom'){start=this._zoomRange?.start??Math.floor(new Date(this.el('from').value+'T00:00:00').getTime()/1000);end=this._zoomRange?.end??Math.floor(new Date(this.el('to').value+'T23:59:59').getTime()/1000)}
@@ -177,7 +186,7 @@ class PowerMonitorPanel extends HTMLElement {
       if(period!=='custom'){this.el('from').value=this.dateInput(new Date(start*1000));this.el('to').value=this.dateInput(new Date(end*1000))}
       const key=period==='custom'?`custom:${start}:${end}`:period;
       let resident=this._resident;
-      const reuse=resident&&resident.device===device&&resident.energy===energy&&(resident.key===key||!!this._navigationBase);
+      const reuse=resident&&resident.device===device&&resident.energy===energy&&(resident.key===key||!!this._navigationBase)&&this.historySourceKey(c)===this.historySourceKey(resident.data);
       if(!reuse){if(!options.navigation)setText(this.el('message'),()=>t('Загружаем график из архива HA…'));resident=await this.loadResident(device,start,end,energy,key,period)}
       else if(options.live)resident=await this.refreshResident(resident,!this._navigationBase&&period!=='custom');
       if(revision===this._drawRevision)this._resident=resident;
@@ -186,7 +195,8 @@ class PowerMonitorPanel extends HTMLElement {
       if(options.live&&!this._navigationBase&&period!=='custom'){start=resident.start;end=resident.end}
       else if(reuse&&!this._navigationBase&&period!=='custom'){start=Math.max(resident.start,resident.end-resident.span);end=resident.end}
       const points=resident.points,data=this.residentViewData(resident,start,end,mode),shown=points.filter(p=>p.timestamp>=start&&p.timestamp<=end);
-      this._plotData={data,points,energy,start,end,mode,keepAxes:options.keepAxes};this.renderPlot(this._plotData);
+      const metric=this.el('metric'),selected=metric.value;metric.replaceChildren(...[{id:'all',name:t('Все показатели')},...this.seriesFor(mode,points)].map(s=>{const o=document.createElement('option');o.value=s.id;setText(o,()=>t(s.name));return o}));metric.value=[...metric.options].some(o=>o.value===selected)?selected:'all';
+      this._plotData={data,points,energy,start,end,mode,keepAxes:options.keepAxes};this.renderPlot(this._plotData);this.updateArchiveSource(data);
       setText(this.el('message'),()=>shown.length?'':t('В выбранном диапазоне пока нет сохранённых данных.'));
       setText(this.el('range'),()=>`${new Date(start*1000).toLocaleDateString(locale())} — ${new Date(end*1000).toLocaleDateString(locale())}${!energy&&end-start<=86401?' · '+new Date(start*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+'–'+new Date(end*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):''}`);
       this._lastGraph={kind:energy?'daily':'minute',points:shown.length,start,end,source:data.source};
@@ -202,6 +212,7 @@ class PowerMonitorPanel extends HTMLElement {
       points=[];
       for(let from=start;from<end;){const until=Math.min(end,from+86400);
         const part=await this.api(action,{device,start:from,end:until,maximum:2000});points.push(...(part.points||[]).filter(p=>until===end||p.timestamp<until));from=until;
+        if(this.historySourceKey(part)!==this.historySourceKey(data))throw Error(t('Источник архива изменился. Обновите график.'));
       }
       sampleSeconds=60;
     }
@@ -216,6 +227,7 @@ class PowerMonitorPanel extends HTMLElement {
     if(!resident.energy&&until-loadedUntil>86400)return this.loadResident(resident.device,follow?now-resident.span:resident.start,resident.period==='custom'?resident.end:now,resident.energy,resident.key,resident.period);
     const overlap=resident.energy?2*86400:180,start=Math.max(resident.start,loadedUntil-overlap);
     const data=await this.api(resident.energy?'days':'history',{device:resident.device,start,end:until,maximum:2000});
+    if(this.historySourceKey(data)!==this.historySourceKey(resident.data))return this.loadResident(resident.device,follow?now-resident.span:resident.start,resident.period==='custom'?resident.end:now,resident.energy,resident.key,resident.period);
     if(data.generation&&resident.data.generation&&data.generation!==resident.data.generation)return this.loadResident(resident.device,follow?now-resident.span:resident.start,resident.period==='custom'?resident.end:now,resident.energy,resident.key,resident.period);
     // Replace the overlap, including missing/retracted records, rather than
     // appending duplicate provisional days or timestamps on every refresh.
@@ -223,7 +235,7 @@ class PowerMonitorPanel extends HTMLElement {
     const nextStart=follow?Math.max(0,now-resident.span):resident.start;
     points=points.filter(p=>p.timestamp>=nextStart&&p.timestamp<=now).slice(resident.energy?-2000:-10080);
     if(!resident.energy&&resident.sampleSeconds<=60)points=points.map((p,i)=>i&&p.timestamp-points[i-1].timestamp>120?{...p,gapBefore:true}:p);
-    return {...resident,start:nextStart,end:resident.period==='custom'?resident.end:now,loadedUntil:until,points,data:{...resident.data,conflictingSequences:data.conflictingSequences||0}};
+    return {...resident,start:nextStart,end:resident.period==='custom'?resident.end:now,loadedUntil:until,points,data:{...resident.data,conflictingSequences:data.conflictingSequences||0,...(data.externalArchive?{externalArchive:data.externalArchive}:{})}};
   }
   residentViewData(resident,start,end,mode){
     const points=resident.points.filter(p=>p.timestamp>=start&&p.timestamp<=end),channels={};
@@ -234,6 +246,14 @@ class PowerMonitorPanel extends HTMLElement {
     return {...resident.data,summary:{channels,gaps,gapCount:gaps.length,approximate:!resident.energy&&resident.sampleSeconds>60}};
   }
 
+  seriesFor(mode,points){
+    const current=this._inverterCurrent;
+    const model=INVERTER_PROFILES.flatMap(brand=>brand.models).find(m=>m.protocol===current?.inverterProtocol);
+    const known=model?.mpptCount;
+    const count=known===1||known===2?known:current?.values?.inverter_mppt_count===2?2:1;
+    return PM_GROUPS[mode].filter(s=>!['pv1','pv2','pv2Voltage'].includes(s.id)||count===2)
+      .map(s=>s.id==='pvVoltage'&&count===2?{...s,name:'Напряжение PV1'}:s);
+  }
   formatValue(value,energy=false){
     if(value==null||!Number.isFinite(value))return '—';
     const scaled=energy||Math.abs(value)>=1000;
@@ -242,9 +262,9 @@ class PowerMonitorPanel extends HTMLElement {
   value(point,series,energy){return point[energy?series.id+'Wh':series.field]}
   valid(point,series,energy){return Number.isFinite(this.value(point,series,energy))&&(energy||!!(series.source==='battery'?point.batteryAvailable:point.available))}
   measurement(value,series,energy=false){if(energy||series.unit==='Вт')return this.formatValue(value,energy);return Number.isFinite(value)?new Intl.NumberFormat(locale(),{maximumFractionDigits:series.unit==='В'?2:1}).format(value)+' '+t(series.unit):'—'}
-  exportCsv(){const m=this._plotData;if(!m)return;const series=PM_GROUPS[m.mode];const rows=[[t('Время'),...series.map(s=>t(s.name)+' ('+(m.energy?'Wh':technical(s.unit))+')')],...m.points.filter(p=>p.timestamp>=m.start&&p.timestamp<=m.end).map(p=>[new Date(p.timestamp*1000).toISOString(),...series.map(s=>this.valid(p,s,m.energy)?this.value(p,s,m.energy):'')])];const url=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='power-monitor-'+m.mode+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+  exportCsv(){const m=this._plotData;if(!m)return;const series=this.seriesFor(m.mode,m.points);const rows=[[t('Время'),...series.map(s=>t(s.name)+' ('+(m.energy?'Wh':technical(s.unit))+')')],...m.points.filter(p=>p.timestamp>=m.start&&p.timestamp<=m.end).map(p=>[new Date(p.timestamp*1000).toISOString(),...series.map(s=>this.valid(p,s,m.energy)?this.value(p,s,m.energy):'')])];const url=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='power-monitor-'+m.mode+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
   renderStats(model){
-    const {data,energy,mode,start,end}=model,points=model.points.filter(p=>p.timestamp>=start&&p.timestamp<=end),catalog=PM_GROUPS[mode];
+    const {data,energy,mode,start,end}=model,points=model.points.filter(p=>p.timestamp>=start&&p.timestamp<=end),catalog=this.seriesFor(mode,model.points);
     const chosen=this.el('metric').value;
     const visible=catalog.filter(s=>chosen==='all'?this._visible.has(s.id):s.id===chosen);
     this.el('stats').replaceChildren(...visible.map(s=>{
@@ -257,11 +277,11 @@ class PowerMonitorPanel extends HTMLElement {
     }));
   }
   renderPlot(model){
-    const {data,points,energy,start,end,mode}=model;const catalog=PM_GROUPS[mode];this.hideTip();
+    const {data,points,energy,start,end,mode}=model;const catalog=this.seriesFor(mode,model.points);this.hideTip();
     model.geometry=null;model.drawn=new Map();
     const chosen=this.el('metric').value;
     this._powerExtras??=new Set();
-    const visible=s=>mode==='power'&&s.unit!=='Вт'?this._powerExtras.has(s.id):this._visible.has(s.id);
+    const visible=s=>mode==='power'&&(s.unit!=='Вт'||s.optionalPower)?this._powerExtras.has(s.id):this._visible.has(s.id);
     const selected=catalog.filter(s=>chosen==='all'?visible(s):s.id===chosen);
     const windowPoints=points.filter(p=>p.timestamp>=start&&p.timestamp<=end);
     const valuesBySeries=new Map(catalog.map(s=>[s.id,windowPoints.filter(p=>this.valid(p,s,energy)).map(p=>this.value(p,s,energy))]));
@@ -270,7 +290,7 @@ class PowerMonitorPanel extends HTMLElement {
       const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',String(active.includes(s)));
       b.disabled=!valuesBySeries.get(s.id).length;if(b.disabled)b.title=t('Нет данных');
       const dot=document.createElement('span');dot.className='dot';dot.style.background=s.color;b.append(dot,setText(document.createTextNode(''),()=>t(s.name)));
-      b.onclick=()=>{if(chosen!=='all'||b.disabled)return;const target=mode==='power'&&s.unit!=='Вт'?this._powerExtras:this._visible;if(target.has(s.id)){if(active.length===1&&active.includes(s))return;target.delete(s.id)}else target.add(s.id);this.renderPlot(model)};return b;
+      b.onclick=()=>{if(chosen!=='all'||b.disabled)return;const target=mode==='power'&&(s.unit!=='Вт'||s.optionalPower)?this._powerExtras:this._visible;if(target.has(s.id)){if(active.length===1&&active.includes(s))return;target.delete(s.id)}else target.add(s.id);this.renderPlot(model)};return b;
     }));
     this.renderStats(model);
     const plotWidth=this.el('plot').clientWidth||this.clientWidth-32,mobile=plotWidth<600,w=Math.max(240,plotWidth),h=mobile?320:380;
@@ -375,12 +395,12 @@ class PowerMonitorPanel extends HTMLElement {
     this._hoverIndex=lo;this.inspectIndex(lo);
   }
   inspectIndex(index){
-    const m=this._plotData,p=m.points[index];if(!p)return;const {energy,layout:l}=m;
+    const m=this._plotData,p=m.points[index];if(!p)return;const {energy,layout:l,mode,points}=m;
     this._cursorTime=p.timestamp;this._hoverIndex=index;this.updateCursor(index,m);
     const tip=this.el('tooltip');tip.replaceChildren();const close=document.createElement('button');close.type='button';close.className='tip-close';close.textContent='×';bindAttribute(close,'aria-label',()=>t('Закрыть'));close.onclick=()=>this.hideTip();tip.append(close);const head=document.createElement('div');head.className='tip-head';
     setText(head,()=>new Date(p.timestamp*1000).toLocaleString(locale(),energy?{day:'2-digit',month:'2-digit',year:'numeric'}:{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}));tip.append(head);
     const row=(name,value,color,fullName=name)=>{const r=document.createElement('div');r.className='tip-row';const n=document.createElement('span');bindAttribute(n,'title',()=>t(fullName));bindAttribute(n,'aria-label',()=>t(fullName));if(color){const dot=document.createElement('i');dot.className='dot';dot.style.background=color;n.append(dot)}const label=document.createElement('span');label.className='tip-name';setText(label,()=>t(name));n.append(label);const v=document.createElement('strong');v.style.color=color||'';setText(v,()=>value);r.append(n,v);tip.append(r)};
-    const short={load:t('Нагрузка'),grid:t('Из сети'),pv:'PV',batteryCharge:t('Заряд АКБ'),batteryDischarge:t('Разряд АКБ'),pvVoltage:'U PV',inverterTemperature:t('T инв.'),gridVoltage:'U Grid',outputVoltage:'U Out',batteryVoltage:'U Bat',soc:'SOC'};
+    const short={load:t('Нагрузка'),grid:t('Из сети'),pv:'PV',pv1:'PV1',pv2:'PV2',batteryCharge:t('Заряд АКБ'),batteryDischarge:t('Разряд АКБ'),pvVoltage:this.seriesFor(mode,points).some(s=>s.name==='Напряжение PV1')?'U PV1':'U PV',pv2Voltage:'U PV2',inverterTemperature:t('T инв.'),gridVoltage:'U Grid',outputVoltage:'U Out',batteryVoltage:'U Bat',soc:'SOC'};
     for(const s of l.active)row(short[s.id]||s.name,this.valid(p,s,energy)?this.measurement(this.value(p,s,energy),s,energy):'—',s.color,s.name);
     if(energy){if(p.days>1)row(t('В этом столбце'),p.days+t(' дней'));if(p.provisional)row(t('Сегодня'),t('Предварительно'))}
     tip.classList.remove('hidden');const rect=this.el('plot').getBoundingClientRect(),px=l.x(p.timestamp)/l.w*rect.width;

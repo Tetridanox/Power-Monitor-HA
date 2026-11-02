@@ -32,7 +32,7 @@ def serve(app, paired, request):
         raise ArchiveError('invalid history headers')
     epoch = paired['generation'][:16]
     device, generation = paired['deviceId'], paired['generation']
-    db = sqlite3.connect(app.database.as_uri() + '?mode=ro', uri=True, timeout=2)
+    db = app._archive_connection()
     try:
         db.execute('PRAGMA query_only=ON')
         if url.path == '/api/history':
@@ -52,11 +52,12 @@ def serve(app, paired, request):
                 (device, generation, 0x100000000 if before == 'latest' else int(before))).fetchall()
             samples = []
             for raw, in reversed(rows[:64]):
-                values = struct.unpack('<III8H4bBBHH', raw)
+                from .store import unpack_minute
+                values = unpack_minute(raw)
                 item = dict(zip(('sequence', 'timestamp', 'uptimeSeconds', 'pvPower', 'gridPower', 'loadPower',
                     'batteryChargePower', 'batteryDischargePower', 'battMv', 'gridDv', 'outDv',
                     't1', 't2', 'tMos', 'tInv', 'soc'), values[:16]))
-                item.update(battMv=values[8] | values[17] << 16, pvDv=values[18],
+                item.update(battMv=values[8] | values[17] << 16, pvDv=values[18], pv2Dv=values[19], pv2Power=values[20],
                             available=bool(values[16] & 1), batteryAvailable=bool(values[16] & 2))
                 samples.append(item)
             return json_response({'samples': samples, 'historyPage': True, 'historyPageMore': len(rows) > 64,

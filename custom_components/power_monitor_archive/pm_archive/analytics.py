@@ -69,8 +69,8 @@ def minute_cost(rows, settings, start, end):
               'coveredSeconds': 0, 'gapCount': 0}
     previous = None
     for timestamp, raw in rows:
-        import struct
-        fields = struct.unpack('<III8H4bBBHH', raw)
+        from .store import unpack_minute
+        fields = unpack_minute(raw)
         if previous:
             before, old = previous
             delta = timestamp - before
@@ -166,14 +166,14 @@ class AnalyticsStore:
         return True
 
 
-def read_battery(path, device, generation, slot, start, end, maximum):
+def read_battery(path, device, generation, slot, start, end, maximum, *, connection_factory=None):
     if type(slot) is not int or slot not in (0, 1) or not 0 < end-start <= 366*86400 or not 10 <= maximum <= 2000:
         raise ArchiveError('invalid battery history range')
     empty = {'points': [], 'heatmap': [], 'balancing': [], 'identity': None, 'cellCount':0,
              'source': 'HA five-minute observations', 'sampleIntervalSeconds': 300}
     if not Path(path).exists():
         return empty
-    db = sqlite3.connect(Path(path).as_uri()+'?mode=ro', uri=True, timeout=2)
+    db = connection_factory() if connection_factory else sqlite3.connect(Path(path).as_uri()+'?mode=ro', uri=True, timeout=2)
     try:
         db.execute('PRAGMA query_only=ON'); db.execute('PRAGMA cache_size=-512')
         identity = db.execute('SELECT identity FROM battery WHERE device=? AND generation=? AND slot=? AND observed<=? ORDER BY observed DESC LIMIT 1',

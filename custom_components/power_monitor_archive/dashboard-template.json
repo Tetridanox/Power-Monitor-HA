@@ -2675,91 +2675,1449 @@
                     "square": false,
                     "cards": [
                       {
-                        "type": "custom:button-card",
-                        "template": "metric",
-                        "entity": "__PM_inverter_temperature__",
-                        "name": "Температура инвертора",
-                        "icon": "mdi:thermometer",
-                        "variables": {
-                          "accent": "#f06275",
-                          "max_value": 100
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_inverter_temperature__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_inverter_temperature__",
+                          "name": "Температура инвертора",
+                          "icon": "mdi:thermometer",
+                          "variables": {
+                            "accent": "#f06275",
+                            "max_value": 100
+                          }
                         }
                       },
                       {
-                        "type": "custom:button-card",
-                        "template": "metric",
-                        "entity": "__PM_load_percent__",
-                        "name": "Загрузка инвертора",
-                        "icon": "mdi:gauge",
-                        "variables": {
-                          "accent": "#ffb52e",
-                          "max_value": 100
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_load_percent__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_load_percent__",
+                          "name": "Загрузка инвертора",
+                          "icon": "mdi:gauge",
+                          "variables": {
+                            "accent": "#ffb52e",
+                            "max_value": 100
+                          }
                         }
                       },
                       {
-                        "type": "custom:button-card",
-                        "template": "metric",
-                        "entity": "__PM_grid_voltage__",
-                        "name": "Напряжение сети",
-                        "icon": "mdi:transmission-tower",
-                        "variables": {
-                          "accent": "#42a5f5",
-                          "max_value": 260
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_grid_voltage__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_grid_voltage__",
+                          "name": "Напряжение сети",
+                          "icon": "mdi:transmission-tower",
+                          "variables": {
+                            "accent": "#42a5f5",
+                            "max_value": 260
+                          }
                         }
                       },
                       {
-                        "type": "custom:button-card",
-                        "template": "metric",
-                        "entity": "__PM_grid_frequency__",
-                        "name": "Частота сети",
-                        "icon": "mdi:sine-wave",
-                        "variables": {
-                          "accent": "#26c6da",
-                          "max_value": 60
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_grid_frequency__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_grid_frequency__",
+                          "name": "Частота сети",
+                          "icon": "mdi:sine-wave",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 60
+                          }
                         }
                       },
                       {
-                        "type": "custom:button-card",
-                        "template": "metric",
-                        "entity": "__PM_output_voltage__",
-                        "name": "Выходное напряжение",
-                        "icon": "mdi:power-plug",
-                        "variables": {
-                          "accent": "#42a5f5",
-                          "max_value": 260
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_output_voltage__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_output_voltage__",
+                          "name": "Выходное напряжение",
+                          "icon": "mdi:power-plug",
+                          "variables": {
+                            "accent": "#42a5f5",
+                            "max_value": 260
+                          }
                         }
                       },
                       {
-                        "type": "custom:button-card",
-                        "template": "metric",
-                        "entity": "__PM_output_frequency__",
-                        "name": "Выходная частота",
-                        "icon": "mdi:sine-wave",
-                        "variables": {
-                          "accent": "#26c6da",
-                          "max_value": 60
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_output_frequency__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_output_frequency__",
+                          "name": "Выходная частота",
+                          "icon": "mdi:sine-wave",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 60
+                          }
                         }
                       },
                       {
-                        "type": "custom:button-card",
-                        "template": "metric",
-                        "entity": "__PM_pv_voltage__",
-                        "name": "Напряжение PV",
-                        "icon": "mdi:solar-power",
-                        "variables": {
-                          "accent": "#ffb52e",
-                          "max_value": 500
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_pv_voltage__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_pv_voltage__",
+                          "name": "Напряжение PV",
+                          "icon": "mdi:solar-power",
+                          "variables": {
+                            "accent": "#ffb52e",
+                            "max_value": 500
+                          }
                         }
                       },
                       {
-                        "type": "custom:button-card",
-                        "template": "metric",
-                        "entity": "__PM_pv_current__",
-                        "name": "Ток PV",
-                        "icon": "mdi:current-dc",
-                        "variables": {
-                          "accent": "#ffb52e",
-                          "max_value": 30
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_pv_current__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_pv_current__",
+                          "name": "Ток PV",
+                          "icon": "mdi:current-dc",
+                          "variables": {
+                            "accent": "#ffb52e",
+                            "max_value": 30
+                          }
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_pv1_power__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_pv1_power__",
+                          "name": "Мощность MPPT1",
+                          "icon": "mdi:solar-power",
+                          "variables": {
+                            "accent": "#ffb52e",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_pv2_voltage__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_pv2_voltage__",
+                          "name": "Напряжение MPPT2",
+                          "icon": "mdi:solar-power",
+                          "variables": {
+                            "accent": "#ffb52e",
+                            "max_value": 500
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_pv2_current__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_pv2_current__",
+                          "name": "Ток MPPT2",
+                          "icon": "mdi:current-dc",
+                          "variables": {
+                            "accent": "#ffb52e",
+                            "max_value": 60
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_pv2_power__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_pv2_power__",
+                          "name": "Мощность MPPT2",
+                          "icon": "mdi:solar-power",
+                          "variables": {
+                            "accent": "#ffb52e",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_output_current__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_output_current__",
+                          "name": "Выходной ток",
+                          "icon": "mdi:current-dc",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 60
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_inverter_state__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_inverter_state__",
+                          "name": "Состояние инвертора (код)",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_fault_code__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_fault_code__",
+                          "name": "Код аварии",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_inverter_dc_current__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_inverter_dc_current__",
+                          "name": "Ток DC-инвертора",
+                          "icon": "mdi:current-dc",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 60
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_ac_charge_current__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_ac_charge_current__",
+                          "name": "Ток заряда от сети",
+                          "icon": "mdi:current-dc",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 60
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_inverter_heatsink_temperature__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_inverter_heatsink_temperature__",
+                          "name": "Температура радиатора",
+                          "icon": "mdi:thermometer",
+                          "variables": {
+                            "accent": "#ff7043",
+                            "max_value": 100
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_dc_dc_temperature__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_dc_dc_temperature__",
+                          "name": "Температура DC-DC",
+                          "icon": "mdi:thermometer",
+                          "variables": {
+                            "accent": "#ff7043",
+                            "max_value": 100
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_buck1_temperature__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_buck1_temperature__",
+                          "name": "Температура Buck 1",
+                          "icon": "mdi:thermometer",
+                          "variables": {
+                            "accent": "#ff7043",
+                            "max_value": 100
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_buck2_temperature__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_buck2_temperature__",
+                          "name": "Температура Buck 2",
+                          "icon": "mdi:thermometer",
+                          "variables": {
+                            "accent": "#ff7043",
+                            "max_value": 100
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_ac_charge_power__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_ac_charge_power__",
+                          "name": "Мощность заряда от сети",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_ac_charge_apparent_power__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_ac_charge_apparent_power__",
+                          "name": "Полная мощность заряда от сети",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_ac_input_power__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_ac_input_power__",
+                          "name": "Входная мощность сети",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_ac_input_apparent_power__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_ac_input_apparent_power__",
+                          "name": "Полная входная мощность сети",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_ac_discharge_power__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_ac_discharge_power__",
+                          "name": "Выходная мощность AC",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_ac_discharge_apparent_power__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_ac_discharge_apparent_power__",
+                          "name": "Полная выходная мощность AC",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_battery_discharge_power__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_battery_discharge_power__",
+                          "name": "Мощность разряда АКБ инвертора",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_battery_discharge_apparent_power__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_battery_discharge_apparent_power__",
+                          "name": "Полная мощность разряда АКБ",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_battery_power_signed__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_battery_power_signed__",
+                          "name": "Мощность АКБ инвертора (разряд +)",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_pv_today_kwh__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_pv_today_kwh__",
+                          "name": "PV: энергия инвертора сегодня",
+                          "icon": "mdi:counter",
+                          "variables": {
+                            "accent": "#ffb52e",
+                            "max_value": 10000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_pv_total_kwh__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_pv_total_kwh__",
+                          "name": "PV: энергия инвертора всего",
+                          "icon": "mdi:counter",
+                          "variables": {
+                            "accent": "#ffb52e",
+                            "max_value": 10000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_ac_charge_today_kwh__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_ac_charge_today_kwh__",
+                          "name": "Заряд от сети сегодня",
+                          "icon": "mdi:counter",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 10000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_ac_charge_total_kwh__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_ac_charge_total_kwh__",
+                          "name": "Заряд от сети всего",
+                          "icon": "mdi:counter",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 10000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_battery_discharge_today_kwh__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_battery_discharge_today_kwh__",
+                          "name": "Разряд АКБ инвертора сегодня",
+                          "icon": "mdi:counter",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 10000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_battery_discharge_total_kwh__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_battery_discharge_total_kwh__",
+                          "name": "Разряд АКБ инвертора всего",
+                          "icon": "mdi:counter",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 10000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_ac_discharge_today_kwh__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_ac_discharge_today_kwh__",
+                          "name": "Выход AC: энергия сегодня",
+                          "icon": "mdi:counter",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 10000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_ac_discharge_total_kwh__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_ac_discharge_total_kwh__",
+                          "name": "Выход AC: энергия всего",
+                          "icon": "mdi:counter",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 10000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_warning_code__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_warning_code__",
+                          "name": "Код предупреждения",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_fault_value__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_fault_value__",
+                          "name": "Значение аварии",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
+                        }
+                      },
+                      {
+                        "type": "conditional",
+                        "conditions": [
+                          {
+                            "condition": "state",
+                            "entity": "__PM_warning_value__",
+                            "state_not": [
+                              "unknown",
+                              "unavailable"
+                            ]
+                          }
+                        ],
+                        "card": {
+                          "type": "custom:button-card",
+                          "template": "metric",
+                          "entity": "__PM_warning_value__",
+                          "name": "Значение предупреждения",
+                          "icon": "mdi:flash",
+                          "variables": {
+                            "accent": "#26c6da",
+                            "max_value": 6000
+                          },
+                          "styles": {
+                            "card": [
+                              {
+                                "height": "auto"
+                              },
+                              {
+                                "min-height": "126px"
+                              },
+                              {
+                                "padding": "16px clamp(12px,calc(25vw - 68px),17px)"
+                              }
+                            ]
+                          },
+                          "extra_styles": ".pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }"
                         }
                       }
                     ]

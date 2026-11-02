@@ -52,15 +52,33 @@ def _fnv(data: bytes) -> int:
     return value
 
 
+# Minute wire records: pmh3-38 (single PV voltage) and pmh4-40 (adds pv2Dv).
+MINUTE_V3_STRUCT = "<III8H4bBBHH"
+MINUTE_V4_STRUCT = "<III8H4bBBHHH"
+
+
+def unpack_minute(raw: bytes) -> tuple:
+    """Decode one minute record; absent pv2 stays the 0xffff sentinel, not 0."""
+    if len(raw) == 42:
+        return struct.unpack(MINUTE_V4_STRUCT + "H", raw)
+    if len(raw) == 40:
+        return struct.unpack(MINUTE_V4_STRUCT, raw) + (65535,)
+    return struct.unpack(MINUTE_V3_STRUCT, raw) + (65535, 65535)
+
+
 def _record(kind: str, raw: bytes) -> tuple[int, int, str]:
     if not isinstance(raw, bytes):
         raise ArchiveError("record must be immutable bytes")
     if kind == "minute":
-        if len(raw) != 38 or raw[33] & ~3 or raw[32] > 100:
-            raise ArchiveError("invalid pmh3-38 record")
-        # V2/V3 preserve 24-bit battery voltage in a 32-bit wire field.
+        if len(raw) not in (38, 40, 42) or raw[33] & ~3 or raw[32] > 100:
+            raise ArchiveError("invalid pmh3-38/pmh4-40/pmh5-42 record")
+        # V2/V3/V4 preserve 24-bit battery voltage in a 32-bit wire field.
         if struct.unpack_from("<H", raw, 34)[0] > 255:
             raise ArchiveError("battery voltage exceeds source precision")
+        if len(raw) == 42:
+            total, second = struct.unpack_from("<H", raw, 12)[0], struct.unpack_from("<H", raw, 40)[0]
+            if second != 65535 and second > total:
+                raise ArchiveError("MPPT2 power exceeds total PV")
         identity, timestamp = struct.unpack_from("<II", raw)
     elif kind == "daily":
         if len(raw) != 56 or raw[:4] != struct.pack("<I", 0x44415932) or _fnv(raw[:52]) != struct.unpack_from("<I", raw, 52)[0]:
@@ -110,6 +128,22 @@ def validate(page: Page) -> list[tuple[int, int, str, bytes]]:
     if rows and page.previous_cursor == page.next_cursor:
         raise ArchiveError("nonempty page made no progress")
     return rows
+
+
+def resolve_minute_extensions(db, source="main.variants", tables=("main.variants",)):
+    if source not in ("main.variants", "archive_variants"):
+        raise ArchiveError("invalid archive projection")
+    if any(table not in ('main.variants', 'cold.variants', 'recent_variants') for table in tables):
+        raise ArchiveError("invalid archive projection tables")
+    # Probe the real indexed tables, not the union view: a correlated probe of
+    # that view would materialize the entire HDD archive for each legacy row.
+    exclusions = ' AND '.join(f"""NOT EXISTS(
+        SELECT 1 FROM {table} b WHERE b.device=a.device AND b.generation=a.generation
+        AND b.kind=a.kind AND b.record_id=a.record_id AND b.provisional=a.provisional
+        AND length(b.raw)=42 AND substr(b.raw,1,length(a.raw))=a.raw)""" for table in tables)
+    columns = 'a.rowid,a.*' if source == 'main.variants' else 'a.*'
+    db.execute(f"""CREATE TEMP VIEW variants AS SELECT {columns} FROM {source} a
+        WHERE a.kind!='minute' OR length(a.raw)=42 OR ({exclusions})""")
 
 
 class ArchiveStore:

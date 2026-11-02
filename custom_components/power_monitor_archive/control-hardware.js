@@ -1,8 +1,8 @@
-import {validateUtf8} from './control-validation.js?v=1.0.236';
-import {t,technical,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.236';
-import {el,icon,button,fmt,sameValue,errorText,inverterInputValue} from './control-ui.js?v=1.0.236';
-import {BMS_GROUPS,LABELS,inverterOptions,inverterValue,PROTOCOL_LABELS,INTERFACE_LABELS} from './control-schema.js?v=1.0.236';
-import {wait,ticketResult} from './control-api.js?v=1.0.236';
+import {validateUtf8} from './control-validation.js?v=1.0.250';
+import {t,technical,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.250';
+import {el,icon,button,fmt,sameValue,errorText,inverterInputValue} from './control-ui.js?v=1.0.250';
+import {BMS_GROUPS,LABELS,inverterOptions,inverterValue,PROTOCOL_LABELS,INTERFACE_LABELS} from './control-schema.js?v=1.0.250';
+import {wait,ticketResult} from './control-api.js?v=1.0.250';
 const near=(a,b)=>Number.isFinite(Number(a))&&Number.isFinite(Number(b))?sameValue(Number(a),Number(b)):String(a)===String(b);
 const bmsSettingWritable=key=>!['voltageCalibration','currentCalibration','emergencyEnabled'].includes(key);
 export const inverterSettingsUnsupported=error=>(error?.data?.error||error?.message)==='inverter_profile_not_pi30';
@@ -34,8 +34,47 @@ export const INVERTER_READINGS=[
  ['pvVoltage','PV voltage','V',1],['pvCurrent','PV current','A',2],
  ['inverterBatteryVoltage','Inverter battery voltage','V',2],['batteryChargingCurrent','Charging current','A',1],
  ['batteryDischargingCurrent','Discharging current','A',1],['sccBatteryVoltage','SCC battery voltage','V',2],
- ['inverterBatteryCapacity','Inverter SOC','%',0],['busVoltage','BUS voltage','V',0]
+ ['inverterBatteryCapacity','Inverter SOC','%',0],['busVoltage','BUS voltage','V',0],
+
+ ["pv1Power", "PV1 power", "W", 0, "pv2"],
+ ["pv2Voltage", "PV2 voltage", "V", 1, "pv2"],
+ ["pv2Current", "PV2 current", "A", 1, "pv2"],
+ ["pv2Power", "PV2 power", "W", 0, "pv2"],
+ ["outputCurrent", "Output current", "A", 1, "extended"],
+ ["inverterState", "Inverter state", "", 0, "extended"],
+ ["faultCode", "Fault code", "", 0, "extended"],
+ ["inverterDcCurrent", "Ток DC-инвертора", "A", 1, "extended"],
+ ["acChargeCurrent", "Ток заряда от сети", "A", 1, "extended"],
+ ["inverterHeatsinkTemperature", "Температура радиатора", "°C", 1, "extended"],
+ ["dcDcTemperature", "Температура DC-DC", "°C", 1, "extended"],
+ ["buck1Temperature", "Температура Buck 1", "°C", 1, "extended"],
+ ["buck2Temperature", "Температура Buck 2", "°C", 1, "extended"],
+ ["acChargePower", "Мощность заряда от сети", "W", 0, "extended"],
+ ["acChargeApparentPower", "Полная мощность заряда от сети", "VA", 0, "extended"],
+ ["acInputPower", "Входная мощность сети", "W", 0, "extended"],
+ ["acInputApparentPower", "Полная входная мощность сети", "VA", 0, "extended"],
+ ["acDischargePower", "Выходная мощность AC", "W", 0, "extended"],
+ ["acDischargeApparentPower", "Полная выходная мощность AC", "VA", 0, "extended"],
+ ["batteryDischargePower", "Мощность разряда АКБ инвертора", "W", 0, "extended"],
+ ["batteryDischargeApparentPower", "Полная мощность разряда АКБ", "VA", 0, "extended"],
+ ["batteryPowerSigned", "Мощность АКБ инвертора (разряд +)", "W", 0, "extended"],
+ ["pvTodayKwh", "PV: энергия инвертора сегодня", "kWh", 1, "extended"],
+ ["pvTotalKwh", "PV: энергия инвертора всего", "kWh", 1, "extended"],
+ ["acChargeTodayKwh", "Заряд от сети сегодня", "kWh", 1, "extended"],
+ ["acChargeTotalKwh", "Заряд от сети всего", "kWh", 1, "extended"],
+ ["batteryDischargeTodayKwh", "Разряд АКБ инвертора сегодня", "kWh", 1, "extended"],
+ ["batteryDischargeTotalKwh", "Разряд АКБ инвертора всего", "kWh", 1, "extended"],
+ ["acDischargeTodayKwh", "Выход AC: энергия сегодня", "kWh", 1, "extended"],
+ ["acDischargeTotalKwh", "Выход AC: энергия всего", "kWh", 1, "extended"],
+ ["warningCode", "Код предупреждения", "", 0, "extended"],
+ ["faultValue", "Значение аварии", "", 0, "extended"],
+ ["warningValue", "Значение предупреждения", "", 0, "extended"]
 ];
+export function inverterReadingVisible(snapshot,key,capability){
+  return !capability || Number.isFinite(snapshot?.[key]) ||
+    (capability==='pv2' && snapshot?.mpptCount===2) ||
+    (capability==='extended' && snapshot?.hasExtended===true);
+}
 export const HardwareViews={
   renderInverter(p){
     p.dataset.inverterView=inverterViewKey(this.data);
@@ -46,7 +85,7 @@ export const HardwareViews={
     this.stateRow(connection,t('Профиль'),settings?.profile||PROTOCOL_LABELS[link?.configuredProtocol]||'—',true);this.stateRow(connection,t('Обмен'),link?.responding?t('Данные поступают'):t('Нет данных'));this.stateRow(connection,t('Интерфейс'),INTERFACE_LABELS[link?.configuredInterface]||'—');grid.append(connection);
     this.stateRow(connection,t('Настройки'),settings?(settings.supportsWrite?t('Чтение и запись'):t('Только чтение')):inverterSettingsUnsupported(this.data['inverter/settings:error'])?t('Мониторинг'):t('Недоступны'));
     const monitoring=this.card(t('Показатели'),'mdi:chart-line',true),readingsGrid=el('div','readings');
-    for(const [key,label,unit,digits]of INVERTER_READINGS){const reading=el('div','reading');reading.append(el('span',null,label,true),el('strong'));const value=reading.lastChild;value.dataset.inverterReading=key;value.dataset.unit=unit;value.dataset.digits=digits;setText(value,()=>fmt(live?.[key],digits)+(Number.isFinite(live?.[key])&&unit?' '+unit:''));readingsGrid.append(reading)}monitoring.append(readingsGrid);grid.append(monitoring);
+    for(const [key,label,unit,digits,optional]of INVERTER_READINGS){const reading=el('div','reading');reading.hidden=!inverterReadingVisible(readings,key,optional);reading.dataset.capability=optional||'';reading.append(el('span',null,label,true),el('strong'));const value=reading.lastChild;value.dataset.inverterReading=key;value.dataset.unit=unit;value.dataset.digits=digits;setText(value,()=>fmt(live?.[key],digits)+(Number.isFinite(live?.[key])&&unit?' '+unit:''));readingsGrid.append(reading)}monitoring.append(readingsGrid);grid.append(monitoring);
     if(!settings){if(!inverterSettingsUnsupported(this.data['inverter/settings:error']))connection.append(this.notice(t('Настройки инвертора временно недоступны.')));p.append(grid);return}
     const c=this.card(t('Параметры инвертора'),'mdi:tune',true),actions=el('div','actions');actions.style.marginTop='0';actions.style.marginBottom='22px';
     const unlock=button(()=>(settings.expertUnlocked?t('Заблокировать'):t('Разблокировать')),()=>{if(settings.expertUnlocked){this.run('inv-lock',async()=>{await this.api.post('inverter/expert',{confirmation:'LOCK'});this.data['inverter/settings']=await this.api.get('inverter/settings');this.renderPage('inverter',true)},'');return}this.modal(t('Экспертный доступ'),d=>{d.append(this.notice(t('Изменение параметров может прервать питание или повредить батарею.')));const draft={confirmation:''},field=this.field({key:'confirmation',label:t('Введите UNLOCK'),type:'text'},draft,(k,v)=>draft[k]=v);const a=el('div','actions');a.append(button(()=>(t('Разблокировать')),()=>this.run('inv-unlock',async()=>{if(draft.confirmation!=='UNLOCK')throw new Error(t('Введите UNLOCK'));await this.api.post('inverter/expert',{confirmation:'UNLOCK'});this.data['inverter/settings']=await this.api.get('inverter/settings');this.renderPage('inverter',true);d.close()},''),'button primary'));d.append(field,a)})},'button',settings.expertUnlocked?'mdi:lock-open-outline':'mdi:lock-outline');unlock.disabled=!settings.available||!settings.supportsWrite;
@@ -74,7 +113,7 @@ export const HardwareViews={
     while(Date.now()<deadline){await wait(750);const current=await this.api.get('inverter/settings');if(current.operation?.id===queued.id&&!current.operation.pending){if(current.operation.result!=='ACK')throw new Error(t('Инвертор отклонил запись: ')+current.operation.result);ack=true}if(ack&&Number(current.updatedAt)>Number(before.updatedAt)&&near(current.values?.[key],value))return current}
     throw new Error(t('Чтение не подтвердило запись. Проверьте значение перед повтором'));
   },
-  updateInverter(p){if(p.dataset.inverterView!==inverterViewKey(this.data)){this.renderPage('inverter',true);return}const data=this.data['inverter/settings:error']?null:this.data['inverter/settings'],snapshot=this.data['telemetry?channel=inverter']?.payload,live=snapshot?.available&&!this.data['telemetry?channel=inverter:error']?snapshot:null;for(const [key,value]of Object.entries({'inv-load':fmt(live?.loadPower),'inv-grid':fmt(live?.gridVoltage,1),'inv-pv':fmt(live?.pvPower),'inv-temperature':fmt(live?.inverterTemperature,1)})){const n=p.querySelector(`[data-live="${key}"]`);if(n){setText(n,()=>value);const unit=n.parentElement.querySelector(".stat-unit");if(unit)unit.hidden=value==="—"}}for(const node of p.querySelectorAll('[data-inverter-reading]')){const value=live?.[node.dataset.inverterReading];setText(node,()=>fmt(value,Number(node.dataset.digits))+(Number.isFinite(value)&&node.dataset.unit?' '+node.dataset.unit:''))}
+  updateInverter(p){if(p.dataset.inverterView!==inverterViewKey(this.data)){this.renderPage('inverter',true);return}const data=this.data['inverter/settings:error']?null:this.data['inverter/settings'],snapshot=this.data['telemetry?channel=inverter']?.payload,live=snapshot?.available&&!this.data['telemetry?channel=inverter:error']?snapshot:null;for(const [key,value]of Object.entries({'inv-load':fmt(live?.loadPower),'inv-grid':fmt(live?.gridVoltage,1),'inv-pv':fmt(live?.pvPower),'inv-temperature':fmt(live?.inverterTemperature,1)})){const n=p.querySelector(`[data-live="${key}"]`);if(n){setText(n,()=>value);const unit=n.parentElement.querySelector(".stat-unit");if(unit)unit.hidden=value==="—"}}for(const node of p.querySelectorAll('[data-inverter-reading]')){const key=node.dataset.inverterReading;node.parentElement.hidden=!inverterReadingVisible(snapshot,key,node.parentElement.dataset.capability);const value=live?.[key];setText(node,()=>fmt(value,Number(node.dataset.digits))+(Number.isFinite(value)&&node.dataset.unit?' '+node.dataset.unit:''))}
     if(!data)return;for(const row of p.querySelectorAll('[data-inverter-key]')){const key=row.dataset.inverterKey,value=data.values?.[key],input=row.querySelector('input,select');if(!input){setText(row.querySelector('.muted'),()=>inverterValue(data,key,value));continue}const writable=data.available&&data.expertUnlocked&&data.supportsWrite&&!this.busy.has('inverter-write');input.disabled=!writable;if(!row.dataset.dirty&&value!==undefined)input.value=inverterInputValue(value);const apply=row.querySelector('button');if(apply)apply.disabled=!writable||!row.dataset.dirty||near(Number(input.value),Number(value))}},
   renderBms(p){
     this._bmsView??='bank';const core=this.data.settings,tabs=el('div','segments compact');
@@ -102,7 +141,6 @@ export const HardwareViews={
     if(!snapshot?.connected&&!core?.bmsSlots?.[slot]?.macAddress){
       const empty=this.card(t('BMS ')+(slot+1),'mdi:battery-off-outline',true);
       empty.classList.add('bms-empty');
-      empty.append(el('p','muted',()=>(t('Слот не настроен. Подключите BMS, чтобы видеть заряд, ячейки и защиты.'))));
       const a=el('div','actions');a.append(button(()=>(t('Подключить BMS ')+(slot+1)),()=>this.connectBmsDialog(slot),'button primary','mdi:bluetooth'));
       empty.append(a);view.append(empty);return;
     }

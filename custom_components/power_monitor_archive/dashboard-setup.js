@@ -1,4 +1,4 @@
-import {t,isApplicationMessage} from './i18n.js?v=1.0.236';
+import {t,isApplicationMessage} from './i18n.js?v=1.0.250';
 export function localizeDashboardTemplate(value){
  if(Array.isArray(value))return value.map(localizeDashboardTemplate);
  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,localizeDashboardTemplate(v)]));
@@ -29,6 +29,58 @@ export function restyleLegacySurfaces(config,entities={}){
   }
  }return changed;
 }
+const INVERTER_METRICS=[["pv1_power","Мощность MPPT1","W",0,"pv2"],["pv2_voltage","Напряжение MPPT2","V",1,"pv2"],["pv2_current","Ток MPPT2","A",1,"pv2"],["pv2_power","Мощность MPPT2","W",0,"pv2"],["output_current","Выходной ток","A",1,"extended"],["inverter_state","Состояние инвертора (код)","",0,"extended"],["fault_code","Код аварии","",0,"extended"],["inverter_dc_current","Ток DC-инвертора","A",1,"extended"],["ac_charge_current","Ток заряда от сети","A",1,"extended"],["inverter_heatsink_temperature","Температура радиатора","°C",1,"extended"],["dc_dc_temperature","Температура DC-DC","°C",1,"extended"],["buck1_temperature","Температура Buck 1","°C",1,"extended"],["buck2_temperature","Температура Buck 2","°C",1,"extended"],["ac_charge_power","Мощность заряда от сети","W",0,"extended"],["ac_charge_apparent_power","Полная мощность заряда от сети","VA",0,"extended"],["ac_input_power","Входная мощность сети","W",0,"extended"],["ac_input_apparent_power","Полная входная мощность сети","VA",0,"extended"],["ac_discharge_power","Выходная мощность AC","W",0,"extended"],["ac_discharge_apparent_power","Полная выходная мощность AC","VA",0,"extended"],["battery_discharge_power","Мощность разряда АКБ инвертора","W",0,"extended"],["battery_discharge_apparent_power","Полная мощность разряда АКБ","VA",0,"extended"],["battery_power_signed","Мощность АКБ инвертора (разряд +)","W",0,"extended"],["pv_today_kwh","PV: энергия инвертора сегодня","kWh",1,"extended"],["pv_total_kwh","PV: энергия инвертора всего","kWh",1,"extended"],["ac_charge_today_kwh","Заряд от сети сегодня","kWh",1,"extended"],["ac_charge_total_kwh","Заряд от сети всего","kWh",1,"extended"],["battery_discharge_today_kwh","Разряд АКБ инвертора сегодня","kWh",1,"extended"],["battery_discharge_total_kwh","Разряд АКБ инвертора всего","kWh",1,"extended"],["ac_discharge_today_kwh","Выход AC: энергия сегодня","kWh",1,"extended"],["ac_discharge_total_kwh","Выход AC: энергия всего","kWh",1,"extended"],["warning_code","Код предупреждения","",0,"extended"],["fault_value","Значение аварии","",0,"extended"],["warning_value","Значение предупреждения","",0,"extended"]];
+
+// Entity availability is authoritative: zero is a reading, unavailable is not.
+// These conditions also work with earlier firmware without capability entities.
+const readingConditions=entity=>[{condition:'state',entity,state_not:['unknown','unavailable']}];
+const BASE_INVERTER_METRICS=[['inverter_temperature','Температура инвертора','°C'],['load_percent','Загрузка инвертора','%'],['grid_voltage','Напряжение сети','V'],['grid_frequency','Частота сети','Hz'],['output_voltage','Выходное напряжение','V'],['output_frequency','Выходная частота','Hz'],['pv_voltage','Напряжение PV','V'],['pv_current','Ток PV','A']];
+export function inverterMetricCard([key,name,unit],entity){
+ const temperature=unit==='°C',energy=unit==='kWh',current=unit==='A',voltage=unit==='V',pv=key.startsWith('pv');
+ return {type:'conditional',conditions:readingConditions(entity),card:{
+  type:'custom:button-card',template:'metric',entity,name:t(name),
+  icon:temperature?'mdi:thermometer':current?'mdi:current-dc':unit==='Hz'?'mdi:sine-wave':energy?'mdi:counter':pv?'mdi:solar-power':'mdi:flash',
+  variables:{accent:temperature?'#ff7043':pv?'#ffb52e':'#26c6da',max_value:temperature?100:current||unit==='Hz'?60:voltage?500:energy?10000:6000},
+  // Keep the metric appearance; long labels/counters can grow vertically.
+  styles:{card:[{height:'auto'},{'min-height':'126px'},{padding:'16px clamp(12px,calc(25vw - 68px),17px)'}]},
+  extra_styles:'.pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }\n.pm-metric-grid .pm-metric-icon { grid-row:2 !important; }\n.pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }'
+ }};
+}
+// Reuse the installed metric template inside the existing inverter grid.
+// Appending is scoped to this integration's canonical diagnostics; user cards,
+// styles, entity IDs and unknown YAML are kept verbatim.
+export function extendInverterMetrics(config,entities,device){
+ const diagnostics=config.views?.find(v=>v.path==='diagnostics');
+ if(!diagnostics||!config.button_card_templates?.metric)return false;
+ let changed=false;
+ const visit=node=>{
+  if(!node||typeof node!=='object')return;
+  const metric=c=>c?.type==='conditional'?metric(c.card):c?.type==='custom:button-card'&&c.template==='metric'?c:null;
+  const has=key=>entities[key]&&node.cards?.some(c=>metric(c)?.entity===entities[key]);
+  // Early installed dashboards had only temperature/load in this grid.
+  if(node.type==='grid'&&Array.isArray(node.cards)&&(has('pv_voltage')||(has('inverter_temperature')&&has('load_percent')))){
+   const baseKeys=['grid_voltage','grid_frequency','load_percent','output_voltage','output_frequency','pv_voltage','pv_current','inverter_temperature'];
+   const baseEntities=new Set(baseKeys.map(key=>entities[key]).filter(Boolean));
+   node.cards=node.cards.map(card=>{
+    if(card.type!=='conditional'&&baseEntities.has(metric(card)?.entity)){
+     changed=true;return {type:'conditional',conditions:readingConditions(card.entity),card};
+    }
+    return card;
+   });
+   const present=new Set();const collect=v=>{if(!v||typeof v!=='object')return;if(v.entity)present.add(v.entity);Object.values(v).forEach(collect)};node.cards.forEach(collect);
+   for(const definition of [...BASE_INVERTER_METRICS,...INVERTER_METRICS]){
+    const entity=entities[definition[0]];
+    if(!entity||present.has(entity))continue;
+    node.cards.push(inverterMetricCard(definition,entity));
+    present.add(entity);changed=true;
+   }
+   return;
+  }
+  Object.values(node).forEach(v=>{if(v&&typeof v==='object')visit(v)});
+ };
+ visit(diagnostics);return changed;
+}
+
 const containsAnalytics=(value,device)=>{
  if(!value||typeof value!=='object')return false;
  if(value.type==='custom:power-monitor-insights-card'&&[device,'auto',undefined].includes(value.device))return true;
@@ -56,6 +108,7 @@ export async function ensureAnalyticsTab(hass,device,path='power-monitor-'+devic
     .map(e=>[e.unique_id.slice(device.length+1),e.entity_id]));
  }
  restyleLegacySurfaces(next,entities);
+ extendInverterMetrics(next,entities,device);
  if(JSON.stringify(next)===JSON.stringify(original))return false;
  const current=await hass.callWS({type:'lovelace/config',url_path:path});
  if(JSON.stringify(current)!==JSON.stringify(original))throw new Error('dashboard_changed_retry');
@@ -65,7 +118,7 @@ export async function ensureAnalyticsTab(hass,device,path='power-monitor-'+devic
  return true;
 }
 export async function ensureDashboard(hass,device,{fetchTemplate=async()=>{
-  const response=await fetch('/power_monitor_archive/dashboard-template.json?v=1.0.236');
+  const response=await fetch('/power_monitor_archive/dashboard-template.json?v=1.0.250');
   if(!response.ok)throw new Error('template_unavailable');return response.json();
 },requireStyled=false}={}){
   const path='power-monitor-'+device,existing=await hass.callWS({type:'lovelace/dashboards/list'});

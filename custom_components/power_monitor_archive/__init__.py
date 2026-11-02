@@ -114,7 +114,7 @@ async def async_setup(hass, config):
     await hass.http.async_register_static_paths([
         StaticPathConfig('/power_monitor_archive/' + name, str(Path(__file__).with_name(name)), False)
         for name in ('forecast-card.js', 'dashboard-setup.js', 'dashboard-bootstrap.js', 'control-schema.js', 'control-api.js', 'control-views.js',
-                     'i18n.js', 'i18n-messages.js', 'control-validation.js', 'control-hardware.js', 'control-backup.js', 'control-ota.js', 'control-ui.js', 'control.css', 'inverter-catalog.js', 'insights-card.js', 'telegram-card.js')
+                     'i18n.js', 'i18n-messages.js', 'control-validation.js', 'control-hardware.js', 'control-backup.js', 'control-ota.js', 'control-ui.js', 'control.css', 'inverter-catalog.js', 'insights-card.js', 'storage-panel.js', 'telegram-card.js')
     ])
     websocket_api.async_register_command(hass, websocket_archive)
     websocket_api.async_register_command(hass, websocket_device)
@@ -187,7 +187,7 @@ async def async_unload_entry(hass, entry):
 
 @websocket_api.websocket_command({
     vol.Required("type"): DOMAIN + "/query",
-    vol.Required("action"): vol.In(("status", "coverage", "history", "days", "resume", "current", "interface", "dashboard", "analytics", "costs", "analysis_settings", "telegram_settings", "telegram_settings_save")),
+    vol.Required("action"): vol.In(("status", "coverage", "history", "days", "resume", "current", "interface", "dashboard", "analytics", "costs", "storage", "storage_export", "storage_configuration", "configure_storage", "analysis_settings", "telegram_settings", "telegram_settings_save")),
     vol.Optional("device"): vol.All(str, vol.Match(r"^[0-9a-f]{12}$")),
     vol.Optional("start"): vol.All(int, vol.Range(min=0, max=0xffffffff)),
     vol.Optional("end"): vol.All(int, vol.Range(min=0, max=0xffffffff)),
@@ -197,6 +197,12 @@ async def async_unload_entry(hass, entry):
     vol.Optional('slot',default=0):vol.All(int,vol.Range(min=0,max=1)),
     vol.Optional('costSettings'):dict,
     vol.Optional('telegramSettings'):dict,
+    vol.Optional('storageSettings'): dict,
+    vol.Optional('scope',default='local'):vol.In(('local','external')),
+    vol.Optional('dataset'):vol.In(('minute','daily','battery','jk_logbook')),
+    vol.Optional('after',default=0):vol.All(int,vol.Range(min=0,max=2**53-1)),
+    vol.Optional('upper',default=0):vol.All(int,vol.Range(min=0,max=2**53-1)),
+    vol.Optional('total',default=0):vol.All(int,vol.Range(min=0,max=2**53-1)),
 })
 @websocket_api.async_response
 async def websocket_archive(hass, connection, msg):
@@ -278,6 +284,15 @@ async def websocket_archive(hass, connection, msg):
                 result = await hass.async_add_executor_job(app.set_interface, device, msg["url"])
             elif action=='analytics':
                 result=await hass.async_add_executor_job(app.analytics,device,msg['start'],msg['end'],msg['maximum'],msg['slot'])
+            elif action=='storage':
+                result=await hass.async_add_executor_job(app.storage_info,device)
+            elif action=='storage_configuration':
+                result=await hass.async_add_executor_job(app.storage_configuration,device)
+            elif action=='configure_storage':
+                result=await hass.async_add_executor_job(app.configure_storage,device,msg['storageSettings'])
+            elif action=='storage_export':
+                result=await hass.async_add_executor_job(app.storage_export,device,msg['scope'],msg['dataset'],
+                    msg['start'],msg['end'],msg['after'],msg['upper'],msg['total'])
             else:
                 result = await hass.async_add_executor_job(getattr(app, action), device,
                     msg["start"], msg["end"], msg["maximum"])

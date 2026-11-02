@@ -11,6 +11,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
            ("bms2_available","Связь с BMS 2","connectivity"),("balancing","Балансировка батареи",None)]
     items += [(f"relay_{i}_state",f"Реле {i}","power") for i in range(1,5)]
     items += [("bms1_balancing","BMS 1 · Балансировка",None),("bms2_balancing","BMS 2 · Балансировка",None)]
+    items += [("inverter_extended","Расширенные показатели инвертора",None)]
     async_add_entities([PowerMonitorBinary(coordinator,entry,*item) for item in items])
 
 

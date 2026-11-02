@@ -1,4 +1,4 @@
-import {messages} from './i18n-messages.js?v=1.0.236';
+import {messages} from './i18n-messages.js?v=1.0.250';
 const KEY='power-monitor-language';
 const supported=new Set(['ru','uk','en']);
 let profile='ru',override='auto';
@@ -38,3 +38,9 @@ export function setMarkup(root,markup){
  }};walk(root);
 }
 export function watchLanguage(owner,extra){const update=()=>{refreshTranslations(owner.shadowRoot);extra?.()};globalThis.window?.addEventListener('power-monitor-language-changed',update);return()=>globalThis.window?.removeEventListener('power-monitor-language-changed',update)}
+export function archiveSourceText(state){
+ if(!state?.configured||state.available)return '';
+ if(state.reason==='syncing')return t('Внешний архив синхронизируется. Показаны локальные данные.');
+ if(state.reason==='busy')return t('Внешний архив занят. Показаны локальные данные.');
+ return t('Внешний архив недоступен. Показаны локальные данные.');
+}

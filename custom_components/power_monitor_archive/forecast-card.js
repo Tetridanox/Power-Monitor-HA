@@ -1,8 +1,8 @@
-import {DeviceApi} from './control-api.js?v=1.0.236';
-import {t,locale,setProfileLanguage,watchLanguage} from './i18n.js?v=1.0.236';
-import {el,icon,button} from './control-ui.js?v=1.0.236';
+import {DeviceApi} from './control-api.js?v=1.0.250';
+import {t,locale,setProfileLanguage,watchLanguage} from './i18n.js?v=1.0.250';
+import {el,icon,button} from './control-ui.js?v=1.0.250';
 
-export const forecastPresentation=config=>Object.fromEntries(['show_title','show_city','show_period','show_updated','show_note','show_units','show_refresh'].map(k=>[k,config?.[k]!==false]));
+export const forecastPresentation=config=>Object.fromEntries(['show_title','show_city','show_period','show_updated','show_note','show_units','show_refresh'].map(k=>[k,['show_period','show_note'].includes(k)?config?.[k]===true:config?.[k]!==false]));
 const TTL=30*60*1000,MAX_BODY=128*1024;
 const hubs=new WeakMap();
 const signature=c=>JSON.stringify(['forecastSource','forecastCity','forecastLatitude','forecastLongitude','forecastPeakPowerWatts','forecastTiltDegrees','forecastAzimuthDegrees','forecastEfficiency','forecastApiUrl','forecastServerUrl'].map(k=>c[k]));
@@ -23,7 +23,9 @@ export function forecastDays(payload,c){
   const peak=Number(c.forecastPeakPowerWatts),efficiency=Number(c.forecastEfficiency),totals=new Map();
   if(!finite(peak)||peak<0||!finite(efficiency)||efficiency<0||efficiency>1)throw Error('invalid_config');
   times.forEach((time,i)=>{if(!finite(values[i]))return;let date=String(time).slice(0,10);if(typeof time==='number'){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:payload.timezone||'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date((time-1)*1000));const get=k=>parts.find(p=>p.type===k)?.value;date=`${get('year')}-${get('month')}-${get('day')}`}totals.set(date,(totals.get(date)||0)+Math.max(0,values[i])*peak/1000*efficiency)});
-  days=[...totals].map(([date,energyWh])=>({date,energyWh}));
+  const first=times[0],parts=typeof first==='number'?new Intl.DateTimeFormat('en-CA',{timeZone:payload.timezone||'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(first*1000)):null;
+  const firstDate=parts?['year','month','day'].map(key=>parts.find(p=>p.type===key).value).join('-'):String(first).slice(0,10);
+  days=[...totals].filter(([date])=>date>=firstDate).map(([date,energyWh])=>({date,energyWh}));
  }else days=payload?.days;
  if(!Array.isArray(days)||!days.length)throw Error('empty_forecast');
  return days.slice(0,7).map(d=>{const date=String(d?.date||''),energyWh=d?.energyWh??d?.energy_wh;if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!finite(energyWh)||energyWh<0||!Number.isFinite(Date.parse(date+'T12:00:00Z'))||new Date(date+'T12:00:00Z').toISOString().slice(0,10)!==date)throw Error('invalid_forecast');return {date,energyWh}});

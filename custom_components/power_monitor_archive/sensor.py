@@ -1,5 +1,6 @@
 """Native read-only inverter/battery/energy sensors."""
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
+import math
 from .const import DOMAIN
 from .entity import PowerMonitorEntity
 
@@ -9,7 +10,7 @@ def definitions():
     def add(key, name, unit, kind): items.append((key, name, unit, kind))
     for key, name in (("grid_power","Из сети"),("load_power","Потребление"),("pv_power","Солнечная генерация"),("battery_power","Мощность батареи")):
         add(key,name,"W","power")
-    for key,name in (("grid_voltage","Напряжение сети"),("output_voltage","Выходное напряжение"),("pv_voltage","Напряжение PV"),("battery_voltage","Напряжение батареи")):
+    for key,name in (("grid_voltage","Напряжение сети"),("output_voltage","Выходное напряжение"),("pv_voltage","Напряжение PV"),("pv2_voltage","Напряжение PV2"),("battery_voltage","Напряжение батареи")):
         add(key,name,"V","voltage")
     for key,name in (("grid_frequency","Частота сети"),("output_frequency","Выходная частота")): add(key,name,"Hz","frequency")
     for key,name in (("pv_current","Ток PV"),("battery_current","Ток батареи")):add(key,name,"A","current")
@@ -35,7 +36,40 @@ def definitions():
             ("bms2_soh","BMS 2 · Состояние батареи","%",None),
             ("bms2_balance_current","BMS 2 · Ток балансировки","A","current")):
         add(key,name,unit,kind)
+    add('pv1_power','Мощность MPPT1','W','power')
+    add('pv2_power','Мощность MPPT2','W','power')
+    add('pv2_current','Ток MPPT2','A','current')
+    add('output_current','Выходной ток','A','current')
+    add('inverter_state','Состояние инвертора (код)',None,None)
+    add('fault_code','Код аварии',None,None)
+    add('inverter_dc_current','Ток DC-инвертора','A','current')
+    add('ac_charge_current','Ток заряда от сети','A','current')
+    add('inverter_heatsink_temperature','Температура радиатора','°C','temperature')
+    add('dc_dc_temperature','Температура DC-DC','°C','temperature')
+    add('buck1_temperature','Температура Buck 1','°C','temperature')
+    add('buck2_temperature','Температура Buck 2','°C','temperature')
+    add('ac_charge_power','Мощность заряда от сети','W','power')
+    add('ac_charge_apparent_power','Полная мощность заряда от сети','VA','apparent_power')
+    add('ac_input_power','Входная мощность сети','W','power')
+    add('ac_input_apparent_power','Полная входная мощность сети','VA','apparent_power')
+    add('ac_discharge_power','Выходная мощность AC','W','power')
+    add('ac_discharge_apparent_power','Полная выходная мощность AC','VA','apparent_power')
+    add('battery_discharge_power','Мощность разряда АКБ инвертора','W','power')
+    add('battery_discharge_apparent_power','Полная мощность разряда АКБ','VA','apparent_power')
+    add('battery_power_signed','Мощность АКБ инвертора (разряд +)','W','power')
+    add('pv_today_kwh','PV: энергия инвертора сегодня','kWh','energy')
+    add('pv_total_kwh','PV: энергия инвертора всего','kWh','energy')
+    add('ac_charge_today_kwh','Заряд от сети сегодня','kWh','energy')
+    add('ac_charge_total_kwh','Заряд от сети всего','kWh','energy')
+    add('battery_discharge_today_kwh','Разряд АКБ инвертора сегодня','kWh','energy')
+    add('battery_discharge_total_kwh','Разряд АКБ инвертора всего','kWh','energy')
+    add('ac_discharge_today_kwh','Выход AC: энергия сегодня','kWh','energy')
+    add('ac_discharge_total_kwh','Выход AC: энергия всего','kWh','energy')
+    add('warning_code','Код предупреждения',None,None)
+    add('fault_value','Значение аварии',None,None)
+    add('warning_value','Значение предупреждения',None,None)
     add("operating_mode","Режим инвертора",None,None)
+    add("inverter_mppt_count","Количество MPPT",None,None)
     for slot in (1,2):
         prefix="" if slot==1 else "bms2_"
         for cell in range(1,33):
@@ -64,7 +98,11 @@ class PowerMonitorSensor(PowerMonitorEntity, SensorEntity):
         if "resistance" in key:self._attr_entity_registry_enabled_default=False
 
     @property
+    def available(self):
+        return super().available and self.native_value is not None
+
+    @property
     def native_value(self):
         value=self.value
         if self.key=="operating_mode":return value if value in ("line","battery") else None
-        return value if isinstance(value,(int,float)) and not isinstance(value,bool) else None
+        return value if isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(value) else None

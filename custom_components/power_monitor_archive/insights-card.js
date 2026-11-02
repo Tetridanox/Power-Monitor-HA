@@ -1,15 +1,16 @@
-import {t,locale,setText,setProfileLanguage,watchLanguage} from './i18n.js?v=1.0.236';
+import {archiveSourceText,t,locale,setText,setProfileLanguage,watchLanguage} from './i18n.js?v=1.0.250';
+import {renderStorage,captureStorageDialog,renderStorageDialog} from './storage-panel.js?v=1.0.250';
 
 const text=(tag,value)=>{const node=document.createElement(tag);setText(node,()=>value);return node};
 const number=(value,digits=2)=>typeof value==='number'&&Number.isFinite(value)?value.toLocaleString(locale(),{maximumFractionDigits:digits}):'—';
 const NS='http://www.w3.org/2000/svg';
 export class PowerMonitorInsightsCard extends HTMLElement {
  constructor(){super();this.attachShadow({mode:'open'});this._period=30;this._slot=0;this._metric='deltaMax';this._revision=0}
- setConfig(config){if(this._config?.device!==config.device){++this._revision;this._priceDraft=null;this._battery=null;this._costs=null;this._loaded=false;this.shadowRoot.replaceChildren()}this._config={device:'auto',...config};if(this._hass&&this.isConnected)this.load()}
+ setConfig(config){if(this._config?.device!==config.device){++this._revision;if(this._storageExport)this._storageExport.cancelled=true;this._storageExport=null;this._exportProgress='';this._storageData=null;this._storageError=null;this._storageExportMessage='';this._priceDraft=null;this._storageSettingsOpen=false;this._storageSettingsSaving=false;this._storageDraft=null;this._storageDialogFocus=null;this._storageConfiguration=null;this._battery=null;this._costs=null;this._loaded=false;this.shadowRoot.replaceChildren()}this._config={device:'auto',...config};if(this._hass&&this.isConnected)this.load()}
  set hass(hass){setProfileLanguage(hass.locale?.language||hass.language);this._hass=hass;if(this.isConnected&&!this._loaded)this.load()}
- set paused(value){this._paused=Boolean(value);if(!this._paused&&this.isConnected)this.load()}
+ set paused(value){this._paused=Boolean(value);if(this._paused&&this._storageExport)this._storageExport.cancelled=true;if(!this._paused&&this.isConnected)this.load()}
  connectedCallback(){this._unsubscribe?.();this._unsubscribe=watchLanguage(this,()=>this.render());this._plotObserver?.disconnect();this._plotObserver=new ResizeObserver(entries=>{const width=Math.floor(entries[0]?.contentRect.width||0);if(width>0&&Math.abs(width-(this._graphWidth||0))>2){this._graphWidth=width;cancelAnimationFrame(this._resizeFrame);this._resizeFrame=requestAnimationFrame(()=>{this._resizeFrame=null;if(this.isConnected)this.render()})}});this._timer=setInterval(()=>{if(!document.hidden)this.load()},60000);if(this._hass)this.load()}
- disconnectedCallback(){clearInterval(this._timer);cancelAnimationFrame(this._resizeFrame);this._plotObserver?.disconnect();this._unsubscribe?.();++this._revision;this._loaded=false}
+ disconnectedCallback(){clearInterval(this._timer);cancelAnimationFrame(this._resizeFrame);this._plotObserver?.disconnect();this._unsubscribe?.();if(this._storageExport)this._storageExport.cancelled=true;this._storageExport=null;this._exportProgress='';++this._revision;this._loaded=false}
  async request(action,extra={}){return this._hass.callWS({type:'power_monitor_archive/query',action,device:this._device,...extra})}
  async load(){
   if(!this._hass||!this.isConnected||this._paused)return;
@@ -21,9 +22,10 @@ export class PowerMonitorInsightsCard extends HTMLElement {
    if(!this._device)throw Error('unknown_device');
    const end=Math.floor(Date.now()/1000),range={start:end-this._period*86400,end,maximum:1000};
    // Server readers share the archive and its one ESP owner. No device API here.
-   const [battery,costs]=await Promise.all([this.request('analytics',{...range,slot:this._slot}),this.request('costs',range)]);
+   const [battery,costs,storage]=await Promise.all([this.request('analytics',{...range,slot:this._slot}),this.request('costs',range),this.request('storage').then(value=>({value}),()=>({error:true}))]);
    if(revision!==this._revision||!this.isConnected)return;
    this._battery=battery;this._costs=costs;this._loaded=true;this._error=null;
+   if(storage.value)this._storageData=storage.value;this._storageError=storage.error;
   }catch(error){if(revision===this._revision)this._error=error.code||'archive_unavailable'}
   finally{this._busy=false;if(this.isConnected){this.render();if(this._reload){this._reload=false;this.load()}}}
  }
@@ -50,11 +52,13 @@ export class PowerMonitorInsightsCard extends HTMLElement {
  closePrices(){const dialog=this.shadowRoot.querySelector('dialog');dialog?.close();dialog?.querySelector('form')?.remove();this._pricesOpen=false;this._priceDraft=null;this.render()}
  render(){
   if(!this.shadowRoot)return;
-  const old=this.shadowRoot.querySelector('form'),oldDialog=this.shadowRoot.querySelector('dialog');
+  captureStorageDialog(this);
+  const oldDialog=this.shadowRoot.querySelector('dialog[aria-labelledby="tariff-title"]'),old=oldDialog?.querySelector('form');
   if(oldDialog?.open&&old)this._priceDraft=Object.fromEntries(new FormData(old));
   if(oldDialog)this._pricesOpen=oldDialog.open;
   const advanced=this.shadowRoot.querySelector('[data-advanced]');if(advanced)this._advancedOpen=advanced.open;
   const focused=this.shadowRoot.activeElement;
+  const storageFocus=focused?.dataset?.storageFocus;
   const restore=old?.contains(focused)?{name:focused.name,start:focused.selectionStart,end:focused.selectionEnd}:null;
   this.shadowRoot.replaceChildren();
   const style=text('style',`
@@ -66,17 +70,20 @@ export class PowerMonitorInsightsCard extends HTMLElement {
    @media(min-width:1600px){.page{padding:28px 32px;gap:20px}.lower{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}}@media(max-width:850px){.lower{grid-template-columns:minmax(0,1fr)}.page-heading{align-items:start;flex-direction:column;gap:16px}.toolbar{width:100%}.toolbar label{flex:1}.stats{gap:10px}.stat{gap:10px}.stat-icon{width:34px;height:34px}.stat strong{font-size:24px}}@media(max-width:500px){.page{padding:14px;gap:12px}h2{font-size:22px}ha-card{padding:16px;border-radius:14px}.stats{gap:8px}.stat{display:block;padding:12px}.stat-icon{display:none}.stat strong{font-size:23px}.stat .unit{font-size:11px;margin-left:3px}.stat-label{font-size:11px;min-height:28px;margin-bottom:4px}.card-heading{gap:10px}.chart-card .card-heading{align-items:start}.chart-card select{min-width:0;max-width:150px;font-size:12px}.periods button{padding:8px 10px}.toolbar{gap:8px}.toolbar label{min-width:75px}.money{font-size:32px}.dialog-heading{padding:18px}.tariff-form{padding:0 18px 18px;gap:18px}.form-pair{gap:12px}.page-footer{align-items:start;flex-direction:column}.page-footer .muted{font-size:11px}}
   `);
   const page=document.createElement('main');page.className='page';
-  const heading=document.createElement('header');heading.className='page-heading';const title=document.createElement('div');title.append(text('h2',t('Аналитика')),text('p',t('Батарея и энергия')));title.lastChild.className='muted';
+  const heading=document.createElement('header');heading.className='page-heading';const title=document.createElement('div');title.append(text('h2',t('Аналитика')));
   const toolbar=document.createElement('div');toolbar.className='toolbar';const periods=document.createElement('div');periods.className='periods';periods.setAttribute('role','group');periods.setAttribute('aria-label',t('Период'));
   for(const [value,label]of [[30,t('30 дней')],[365,t('Год')]]){const b=this.button(label,()=>{this._period=value;this.load()});b.classList.toggle('selected',this._period===value);b.setAttribute('aria-pressed',String(this._period===value));periods.append(b)}
   toolbar.append(periods,this.select(t('Батарея'),[['0','BMS 1'],['1','BMS 2']],this._slot,value=>{this._slot=Number(value);this.load()}));const refresh=this.button('',()=>this.load());refresh.className='icon-button';refresh.append(this.icon('mdi:refresh'));refresh.title=t('Обновить');refresh.setAttribute('aria-label',t('Обновить'));toolbar.append(refresh);heading.append(title,toolbar);page.append(heading);
   if(this._error){const error=text('p',t('Не удалось обновить данные'));error.className='error';error.setAttribute('role','alert');page.append(error)}
+  const sourceStates=[this._battery?.externalArchive,this._costs?.externalArchive],sourceState=sourceStates.find(s=>s?.configured&&!s.available)||sourceStates.find(s=>s?.configured),sourceMessage=archiveSourceText(sourceState);if(sourceMessage){const sourceNote=text('p',sourceMessage);sourceNote.className='muted';sourceNote.setAttribute('role','status');page.append(sourceNote)}
   const stats=document.createElement('div');stats.className='stats';this.renderStats(stats);page.append(stats);
   const chart=this.card(t('Динамика батареи'));chart.className='chart-card';chart.querySelector('header').append(this.select(t('График'),[['deltaMax',t('Разброс ячеек ΔV, mV')],['stateOfHealth',t('Здоровье SOH, %')],['cycleCount',t('Циклы')]],this._metric,value=>{this._metric=value;this.render()}));
   const plot=document.createElement('div');plot.className='plot';this.renderGraph(plot);chart.append(plot);page.append(chart);
   const lower=document.createElement('div');lower.className='lower';const cells=this.card(t('Ячейки'),t('Отклонение от среднего · mV'));this.renderCells(cells);const costs=this.card(t('Энергия и стоимость'));this.renderCosts(costs);lower.append(cells,costs);page.append(lower);
-  const footer=document.createElement('footer');footer.className='page-footer';const note=text('span',t('История BMS обновляется каждые 5 минут'));note.className='muted';const link=text('a',t('Открыть панель энергии'));link.href='/energy';footer.append(note,link);page.append(footer);
-  const dialog=this.renderTariffDialog();this.shadowRoot.append(style,page,dialog);this._plotObserver?.disconnect();this._plotObserver?.observe(plot);
+  page.append(renderStorage(this));
+  if(storageFocus)queueMicrotask(()=>this.shadowRoot.querySelector(`[data-storage-focus="${storageFocus}"]`)?.focus({preventScroll:true}));
+  const footer=document.createElement('footer');footer.className='page-footer';const link=text('a',t('Открыть панель энергии'));link.href='/energy';footer.append(link);page.append(footer);
+  const dialog=this.renderTariffDialog();this.shadowRoot.append(style,page,dialog,renderStorageDialog(this));this._plotObserver?.disconnect();this._plotObserver?.observe(plot);
   Promise.all([chart.updateComplete,costs.updateComplete]).then(()=>{if(!dialog.isConnected)return;if(this._pricesOpen&&!dialog.open)dialog.showModal();if(restore){const field=dialog.querySelector('form')?.elements.namedItem(restore.name);if(field?.isConnected){field.focus({preventScroll:true});if(restore.start!==null)try{field.setSelectionRange(restore.start,restore.end)}catch{}}}});
  }
  renderStats(parent){
@@ -118,7 +125,6 @@ export class PowerMonitorInsightsCard extends HTMLElement {
     button.title=day.date+' · '+(i+1)+': '+number(v,2)+' mV';button.setAttribute('aria-label',button.title);
     if(typeof v==='number')button.style.background=`color-mix(in srgb,${v<0?'var(--info-color,#42a5f5)':'var(--warning-color,#ffb52e)'} ${Math.min(70,Math.abs(v)*3)}%,transparent)`;
     cell.append(button);row.append(cell)});table.append(row)}wrap.append(table);card.append(wrap,selection);
-   const heatNote=text('p',t('Последние 31 день выбранного периода. Цвет показывает среднее отклонение в наблюдавшихся состояниях батареи.'));heatNote.className='muted';card.append(heatNote);
   }
   const source=text('p','BMS '+(this._slot+1)+(data.cellCount>0?' · '+number(data.cellCount,0)+' '+t('ячеек'):''));source.className='source';if(data.identity)source.title='MAC: '+data.identity;card.append(source);
   const details=document.createElement('details');details.append(text('summary',t('Наблюдения балансировки')));
@@ -136,7 +142,7 @@ export class PowerMonitorInsightsCard extends HTMLElement {
  }
  renderTariffDialog(){
   const settings={...(this._costs?.settings||{}),...(this._priceDraft||{})};const dialog=document.createElement('dialog');dialog.setAttribute('aria-labelledby','tariff-title');
-  const heading=document.createElement('header');heading.className='dialog-heading';const words=document.createElement('div'),title=text('h3',t('Тарифы на электроэнергию'));title.id='tariff-title';words.append(title,text('p',t('Цены для расчёта стоимости')));words.lastChild.className='muted';const close=this.button('',()=>this.closePrices());close.disabled=false;close.className='icon-button';close.append(this.icon('mdi:close'));close.setAttribute('aria-label',t('Закрыть'));heading.append(words,close);dialog.append(heading);
+  const heading=document.createElement('header');heading.className='dialog-heading';const words=document.createElement('div'),title=text('h3',t('Тарифы на электроэнергию'));title.id='tariff-title';words.append(title);const close=this.button('',()=>this.closePrices());close.disabled=false;close.className='icon-button';close.append(this.icon('mdi:close'));close.setAttribute('aria-label',t('Закрыть'));heading.append(words,close);dialog.append(heading);
   const form=document.createElement('form');form.className='tariff-form';
   const mode=this.select(t('Тариф'),[['flat',t('Одна цена')],['day_night',t('День / ночь')]],settings.mode||'flat',()=>{});mode.querySelector('select').disabled=false;mode.querySelector('select').name='mode';const tariffRow=document.createElement('div');tariffRow.className='form-pair';form.append(tariffRow);
   const field=(key,label,type,fallback)=>{const row=document.createElement('label'),input=document.createElement('input');row.append(text('span',label));input.name=key;input.type=type;input.required=true;let value=settings[key]??fallback;if(type==='time'&&typeof value==='number')value=String(Math.floor(value/60)).padStart(2,'0')+':'+String(value%60).padStart(2,'0');input.value=String(value);if(type==='number'){input.min='0';input.max='10000';input.step='0.0001'}if(key==='currency'){input.maxLength=3;input.pattern='[A-Z]{3}'}if(key==='timeZone')input.maxLength=64;row.append(input);return row};

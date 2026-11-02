@@ -1,5 +1,5 @@
-import {t,technical,locale} from './i18n.js?v=1.0.236';
-import CATALOG from './inverter-catalog.js?v=1.0.236';
+import {t,technical,locale} from './i18n.js?v=1.0.250';
+import CATALOG from './inverter-catalog.js?v=1.0.250';
 /* Device field contracts. Presentation is owned entirely by the HA frontend. */
 export const PAGES={relays:['Реле','mdi:electric-switch'],inverter:['Инвертор','mdi:solar-power'],bms:['Батарея','mdi:battery-medium'],settings:['Настройки','mdi:tune'],telegram:['Telegram','mdi:send'],'home-assistant':['Подключение и доступ','mdi:home-assistant'],events:['События','mdi:history']};
 const f=(key,label,type='number',extra={})=>({key,label,type,...extra});
@@ -57,7 +57,7 @@ Object.assign(LABELS,{
  mustOffGridOutputEnabled:'Автономный выход',mustOutputVoltage:'Выходное напряжение, В',mustSearchModeEnabled:'Режим поиска нагрузки',mustEnergyUseMode:'Режим использования энергии',mustGridStandard:'Стандарт сети',mustSolarUseAim:'Режим солнечной энергии',mustMaxGridChargeCurrent:'Предельный ток заряда от сети, А',mustInverterBatteryLowVoltage:'Нижний порог батареи инвертора, В',mustInverterBatteryHighVoltage:'Верхний порог батареи инвертора, В',mustMaxCombinedChargeCurrent:'Предельный общий ток заряда, А',mustSystemFlags:'Флаги системы',mustChargerSourcePriority:'Приоритет источника заряда',mustSolarPowerBalance:'Баланс солнечной мощности',mustChargerBatteryLowVoltage:'Нижний порог батареи зарядного устройства, В',mustChargerBatteryHighVoltage:'Верхний порог батареи зарядного устройства, В',mustPvMaxChargingCurrent:'Предельный ток солнечного заряда, А',mustBatteryType:'Тип батареи',mustBatteryCapacityAh:'Ёмкость батареи, А·ч'
 });
 export const PROTOCOL_LABELS={auto:'Автоматически',pi30:'Voltronic PI30',solarv_smh3:'EASUN · Solar Plug',solarv_anern:'Anern · Solar Plug',modbus_smg:'ANENJI · Modbus',modbus_anern:'Anern · Modbus',modbus_must:'MUST · Modbus',modbus_growatt_spf:'Growatt · Modbus',shinewifi_growatt_spf:'Growatt · ShineWiFi'};
-export const INTERFACE_LABELS={auto:'Автоматически',rs232:'RS232',rs485:'RS485',wifi:'Wi-Fi',wifi_tcp:'Wi-Fi / TCP'};
+export const INTERFACE_LABELS={auto:'Автоматически',rs232:'RS232',rs485:'RS485',wifi:'Wi-Fi',wifi_tcp:'Wi-Fi / TCP',ble:'Bluetooth'};
 const OPTION_TEXT={Flooded:'Заливная свинцовая',User:'Пользовательский',Lithium:'Литиевая',LIB:'Литиевая',Appliance:'Широкий диапазон',UPS:'Узкий диапазон (UPS)',Enabled:'Включено',Disabled:'Выключено',USB:'Сеть → солнце → батарея',SUB:'Солнце → сеть → батарея',SBU:'Солнце → батарея → сеть',CSO:'Приоритет солнца',SNU:'Солнце и сеть',OSO:'Только солнце'};
 export const optionText=value=>OPTION_TEXT[value]||String(value).replace(/\bHz\b/g,'Гц').replace(/\bA\b/g,'А');
 export function inverterOptions(settings,key){
