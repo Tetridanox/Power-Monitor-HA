@@ -1,8 +1,8 @@
-import {validateUtf8} from './control-validation.js?v=1.0.255';
-import {t,technical,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.255';
-import {el,icon,button,fmt,sameValue,errorText,inverterInputValue} from './control-ui.js?v=1.0.255';
-import {BMS_GROUPS,LABELS,inverterOptions,inverterValue,PROTOCOL_LABELS,INTERFACE_LABELS} from './control-schema.js?v=1.0.255';
-import {wait,ticketResult} from './control-api.js?v=1.0.255';
+import {validateUtf8} from './control-validation.js?v=1.0.256';
+import {t,technical,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.256';
+import {el,icon,button,fmt,sameValue,errorText,inverterInputValue} from './control-ui.js?v=1.0.256';
+import {BMS_GROUPS,LABELS,inverterOptions,inverterValue,PROTOCOL_LABELS,INTERFACE_LABELS} from './control-schema.js?v=1.0.256';
+import {wait,ticketResult} from './control-api.js?v=1.0.256';
 const near=(a,b)=>Number.isFinite(Number(a))&&Number.isFinite(Number(b))?sameValue(Number(a),Number(b)):String(a)===String(b);
 const bmsSettingWritable=key=>!['voltageCalibration','currentCalibration','emergencyEnabled'].includes(key);
 export const inverterSettingsUnsupported=error=>(error?.data?.error||error?.message)==='inverter_profile_not_pi30';

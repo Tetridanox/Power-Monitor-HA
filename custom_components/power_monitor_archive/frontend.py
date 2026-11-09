@@ -5,15 +5,21 @@ from pathlib import Path
 from urllib.request import urlopen
 
 
+BUNDLED_ORIGAMI = 'Power Monitor Origami'
+
+
 def dependencies():
     return json.loads(Path(__file__).with_name('frontend-dependencies.json').read_text(encoding='utf-8'))
 
 
 def add_bundled_origami(themes, bundled):
-    """Supply the bundled theme only when YAML did not define its own."""
-    if 'Origami' in themes:
+    """Register Power Monitor's variant without changing other themes."""
+    if BUNDLED_ORIGAMI in themes:
         return False
-    themes['Origami'] = bundled
+    themes[BUNDLED_ORIGAMI] = {
+        **bundled,
+        'primary-font-family': '"Power Monitor Montserrat", sans-serif',
+    }
     return True
 
 

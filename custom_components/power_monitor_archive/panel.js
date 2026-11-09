@@ -1,9 +1,9 @@
-import INVERTER_PROFILES from './inverter-catalog.js?v=1.0.255';
-import {ensureDashboard} from './dashboard-setup.js?v=1.0.255';
-import {archiveSourceText,t,technical,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.255';
+import INVERTER_PROFILES from './inverter-catalog.js?v=1.0.256';
+import {ensureDashboard} from './dashboard-setup.js?v=1.0.256';
+import {archiveSourceText,t,technical,locale,setText,setMarkup,bindAttribute,setProfileLanguage,setLanguage,languagePreference,watchLanguage,refreshTranslations} from './i18n.js?v=1.0.256';
 /* Native HA panel. All data travels over the authenticated HA connection. */
-import './dashboard.js?v=1.0.255';
-import './insights-card.js?v=1.0.255';
+import './dashboard.js?v=1.0.256';
+import './insights-card.js?v=1.0.256';
 const PM_SERIES=[
   {id:'load',name:'Потребление',color:'#57b5f5'},
   {id:'grid',name:'Из сети',color:'#f2b44c'},

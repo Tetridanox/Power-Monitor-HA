@@ -1,4 +1,4 @@
-import {t,locale} from './i18n.js?v=1.0.255';
+import {t,locale} from './i18n.js?v=1.0.256';
 
 const NS='http://www.w3.org/2000/svg';
 const names={history:'История мощности и энергии',battery:'История BMS',jk_logbook:'Внутренний журнал JK',metadata:'Служебные данные',combined_archive:'Архив мощности, энергии и BMS'};

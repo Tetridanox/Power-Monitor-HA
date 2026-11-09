@@ -1,4 +1,4 @@
-import {t,setProfileLanguage,watchLanguage} from './i18n.js?v=1.0.255';
+import {t,setProfileLanguage,watchLanguage} from './i18n.js?v=1.0.256';
 
 const node=(tag,value)=>{const e=document.createElement(tag);if(value!==undefined)e.textContent=value;return e};
 class PowerMonitorTelegramCommands extends HTMLElement{

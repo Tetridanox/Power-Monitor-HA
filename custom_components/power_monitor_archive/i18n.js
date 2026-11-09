@@ -1,4 +1,4 @@
-import {messages} from './i18n-messages.js?v=1.0.255';
+import {messages} from './i18n-messages.js?v=1.0.256';
 const KEY='power-monitor-language';
 const supported=new Set(['ru','uk','en']);
 let profile='ru',override='auto';

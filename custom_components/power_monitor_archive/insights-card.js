@@ -1,5 +1,5 @@
-import {archiveSourceText,t,locale,setText,setProfileLanguage,watchLanguage} from './i18n.js?v=1.0.255';
-import {renderStorage,captureStorageDialog,renderStorageDialog,renderClearDialog} from './storage-panel.js?v=1.0.255';
+import {archiveSourceText,t,locale,setText,setProfileLanguage,watchLanguage} from './i18n.js?v=1.0.256';
+import {renderStorage,captureStorageDialog,renderStorageDialog,renderClearDialog} from './storage-panel.js?v=1.0.256';
 
 const text=(tag,value)=>{const node=document.createElement(tag);setText(node,()=>value);return node};
 const number=(value,digits=2)=>typeof value==='number'&&Number.isFinite(value)?value.toLocaleString(locale(),{maximumFractionDigits:digits}):'—';

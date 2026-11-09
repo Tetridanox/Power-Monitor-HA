@@ -1,4 +1,4 @@
-import {t,isApplicationMessage} from './i18n.js?v=1.0.255';
+import {t,isApplicationMessage} from './i18n.js?v=1.0.256';
 export function localizeDashboardTemplate(value){
  if(Array.isArray(value))return value.map(localizeDashboardTemplate);
  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,localizeDashboardTemplate(v)]));
@@ -7,7 +7,8 @@ export function localizeDashboardTemplate(value){
 const resourcesReady=items=>['button-card.js','mushroom.js','apexcharts-card.js','card-mod.js','power-flow-card-plus.js'].every(file=>items.some(x=>x.url?.split('?')[0].endsWith('/'+file)));
 const analyticsView=(device,path='insights')=>({title:t('Аналитика'),path,icon:'mdi:chart-box-outline',type:'panel',cards:[{type:'custom:power-monitor-insights-card',device}]});
 const integrationViews=new Set(['energy','diagnostics','control','archive','events','insights','power-monitor-insights']);
-const origamiFont='"Power Monitor Montserrat", Montserrat, sans-serif';
+const origamiTheme='Power Monitor Origami';
+const origamiFont='"Power Monitor Montserrat", sans-serif';
 const origamiCardStyle=`:host, ha-card { --ha-font-family-body: ${origamiFont}; font-family: var(--ha-font-family-body); }`;
 const origamiCards=new Set(['custom:mushroom-chips-card','custom:mushroom-title-card','custom:power-flow-card-plus','custom:button-card']);
 function applyDashboardAppearance(hass,config,entities){
@@ -34,10 +35,11 @@ function applyDashboardAppearance(hass,config,entities){
   }
   Object.values(value).forEach(applyChartFont);
  };
+ const themes=hass.themes?.themes;
  for(const view of config.views){
   if(!integrationViews.has(view.path))continue;
-  if(hass.themes?.themes?.Origami&&view.theme===undefined)view.theme='Origami';
-  if(view.theme==='Origami'&&['energy','diagnostics'].includes(view.path))applyCardFont(view);
+  if(themes?.[origamiTheme]&&(view.theme===undefined||(view.theme==='Origami'&&!themes.Origami)))view.theme=origamiTheme;
+  if([origamiTheme,'Origami'].includes(view.theme)&&['energy','diagnostics'].includes(view.path))applyCardFont(view);
   if(view.path==='diagnostics'&&firstCells.size)applyChartFont(view);
  }
 }
@@ -154,7 +156,7 @@ export async function ensureAnalyticsTab(hass,device,path='power-monitor-'+devic
  return true;
 }
 export async function ensureDashboard(hass,device,{fetchTemplate=async()=>{
-  const response=await fetch('/power_monitor_archive/dashboard-template.json?v=1.0.255');
+  const response=await fetch('/power_monitor_archive/dashboard-template.json?v=1.0.256');
   if(!response.ok)throw new Error('template_unavailable');return response.json();
 },requireStyled=false}={}){
   const path='power-monitor-'+device,existing=await hass.callWS({type:'lovelace/dashboards/list'});
@@ -181,7 +183,7 @@ export async function ensureDashboard(hass,device,{fetchTemplate=async()=>{
     config.views.push({title:t('История'),path:'archive',icon:'mdi:chart-line',type:'panel',cards:[{type:'custom:power-monitor-history-card',device,period:'1',metric:'power'}]});
     config.views.push({title:t('События'),path:'events',icon:'mdi:history',type:'panel',cards:[{type:'custom:power-monitor-device-card',device,page:'events',hide_navigation:true}]});
     config.views.push(analyticsView(device));
-    for(const view of config.views)view.theme??='Origami';
+    for(const view of config.views)view.theme??=origamiTheme;
     applyDashboardAppearance(hass,config,{});
     if(!exists)await hass.callWS({type:'lovelace/dashboards/create',url_path:path,title:'Power Monitor',icon:'mdi:flash',require_admin:true,show_in_sidebar:true});
     await hass.callWS({type:'lovelace/config/save',url_path:path,config});
