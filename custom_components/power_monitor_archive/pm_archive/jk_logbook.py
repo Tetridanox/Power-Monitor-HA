@@ -56,6 +56,7 @@ def checked_window(value):
 
 
 def read_window_delta(path,checkpoint,limit=32):
+    from .storage import deleted_anchor
     if type(limit) is not int or not 1<=limit<=256:
         raise ArchiveError('invalid JK delta limit')
     cursor=checkpoint.get('rowid');anchor=checkpoint.get('anchor')
@@ -70,7 +71,8 @@ def read_window_delta(path,checkpoint,limit=32):
             raise ArchiveError('unsupported JK logbook schema')
         if cursor:
             row=db.execute('SELECT rowid,* FROM windows WHERE rowid=?',(cursor,)).fetchone()
-            if row is None or window_anchor(wire_window(row))!=anchor:
+            digest = window_anchor(wire_window(row)) if row else deleted_anchor(db, cursor)
+            if digest != anchor:
                 raise ArchiveError('JK checkpoint no longer matches source')
         page=db.execute('SELECT rowid,* FROM windows WHERE rowid>? ORDER BY rowid LIMIT ?',
                         (cursor,limit+1)).fetchall()
@@ -108,6 +110,8 @@ class JkLogbookStore:
                 raise ArchiveError('unsupported JK logbook schema')
             if version == 0 and self.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table'").fetchone():
                 raise ArchiveError('unrelated JK logbook database')
+            if version == 0:
+                self.connection.execute('PRAGMA auto_vacuum=INCREMENTAL')
             self.connection.execute('PRAGMA journal_mode=WAL')
             self.connection.execute('PRAGMA synchronous=FULL')
             self.connection.execute('PRAGMA cache_size=-256')

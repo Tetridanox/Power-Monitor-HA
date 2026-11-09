@@ -9,17 +9,19 @@ import voluptuous as vol
 from homeassistant.components import frontend as ha_frontend, panel_custom, websocket_api, persistent_notification
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.lovelace import LOVELACE_DATA
-from homeassistant.const import EVENT_HOMEASSISTANT_STOP, EVENT_CORE_CONFIG_UPDATE
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP, EVENT_CORE_CONFIG_UPDATE, EVENT_THEMES_UPDATED
 from homeassistant.core import callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util.yaml import load_yaml_dict
 
 from .const import DOMAIN, PANEL, VERSION
 from .pm_archive.runtime import Application
 from .pm_archive.store import ArchiveError
+from .pm_archive.storage import CLEAR_CATEGORIES
 from .pm_archive.analytics import cost_settings, resolved_cost_settings
 from .coordinator import PowerMonitorCoordinator
-from .frontend import ensure_frontend_resources
+from .frontend import add_bundled_origami, ensure_frontend_resources
 
 
 def _create_app(hass):
@@ -55,6 +57,19 @@ def _register_dashboard_bootstrap(hass):
     ha_frontend.add_extra_js_url(hass, '/power_monitor_archive/dashboard-bootstrap.js?v=' + VERSION)
 
 
+async def _register_origami(hass):
+    bundled = await hass.async_add_executor_job(load_yaml_dict, Path(__file__).parent / 'themes' / 'origami.yaml')
+
+    @callback
+    def add_theme(_event=None):
+        if add_bundled_origami(hass.data[ha_frontend.DATA_THEMES], bundled['Origami']):
+            hass.bus.async_fire(EVENT_THEMES_UPDATED)
+
+    add_theme()
+    # Reload Themes replaces the registry from configuration.yaml.
+    return hass.bus.async_listen(EVENT_THEMES_UPDATED, add_theme)
+
+
 async def async_setup(hass, config):
     state = hass.data.setdefault(DOMAIN, {})
     if "app" in state:
@@ -74,6 +89,12 @@ async def async_setup(hass, config):
             blueprint.parent.mkdir(parents=True,exist_ok=True)
             blueprint.write_bytes((Path(__file__).parent/'blueprints'/'telegram_reports.yaml').read_bytes())
     await hass.async_add_executor_job(install_loader)
+    # HA only mounts /local if www already exists at frontend startup.
+    # Serve our resources on the first install as soon as the loader is ready.
+    await hass.http.async_register_static_paths([
+        StaticPathConfig('/local/' + DOMAIN, hass.config.path('www', DOMAIN), True),
+    ])
+    theme_unsub = await _register_origami(hass)
     state["app"] = await hass.async_add_executor_job(_create_app, hass)
     state["reads"] = asyncio.Semaphore(1)
     state["admitted_reads"] = 0
@@ -97,6 +118,7 @@ async def async_setup(hass, config):
     thread.start()
 
     async def stop(_event):
+        theme_unsub()
         state['timezone_unsub']()
         from .telegram_commands import stop_receiver
         for device in list(state.get('telegram_receivers',{})):stop_receiver(state,device)
@@ -112,9 +134,9 @@ async def async_setup(hass, config):
         "/power_monitor_archive/dashboard-template.json", str(Path(__file__).with_name("dashboard-template.json")), False), StaticPathConfig(
         "/power_monitor_archive/brand.svg", str(Path(__file__).with_name("brand.svg")), True)])
     await hass.http.async_register_static_paths([
-        StaticPathConfig('/power_monitor_archive/' + name, str(Path(__file__).with_name(name)), False)
+        StaticPathConfig('/power_monitor_archive/' + name, str(Path(__file__).parent / name), False)
         for name in ('forecast-card.js', 'dashboard-setup.js', 'dashboard-bootstrap.js', 'control-schema.js', 'control-api.js', 'control-views.js',
-                     'i18n.js', 'i18n-messages.js', 'control-validation.js', 'control-hardware.js', 'control-backup.js', 'control-ota.js', 'control-ui.js', 'control.css', 'inverter-catalog.js', 'insights-card.js', 'storage-panel.js', 'telegram-card.js')
+                     'i18n.js', 'i18n-messages.js', 'control-validation.js', 'control-hardware.js', 'control-backup.js', 'control-ota.js', 'control-ui.js', 'control.css', 'inverter-catalog.js', 'insights-card.js', 'storage-panel.js', 'telegram-card.js', 'appearance.css', 'fonts/montserrat.ttf')
     ])
     websocket_api.async_register_command(hass, websocket_archive)
     websocket_api.async_register_command(hass, websocket_device)
@@ -187,7 +209,7 @@ async def async_unload_entry(hass, entry):
 
 @websocket_api.websocket_command({
     vol.Required("type"): DOMAIN + "/query",
-    vol.Required("action"): vol.In(("status", "coverage", "history", "days", "resume", "current", "interface", "dashboard", "analytics", "costs", "storage", "storage_export", "storage_configuration", "configure_storage", "analysis_settings", "telegram_settings", "telegram_settings_save")),
+    vol.Required("action"): vol.In(("status", "coverage", "history", "days", "resume", "current", "interface", "dashboard", "analytics", "costs", "storage", "storage_export", "storage_configuration", "configure_storage", "clear_storage", "analysis_settings", "telegram_settings", "telegram_settings_save")),
     vol.Optional("device"): vol.All(str, vol.Match(r"^[0-9a-f]{12}$")),
     vol.Optional("start"): vol.All(int, vol.Range(min=0, max=0xffffffff)),
     vol.Optional("end"): vol.All(int, vol.Range(min=0, max=0xffffffff)),
@@ -198,7 +220,9 @@ async def async_unload_entry(hass, entry):
     vol.Optional('costSettings'):dict,
     vol.Optional('telegramSettings'):dict,
     vol.Optional('storageSettings'): dict,
-    vol.Optional('scope',default='local'):vol.In(('local','external')),
+    vol.Optional('clearCategories'): vol.All([vol.In(CLEAR_CATEGORIES)], vol.Length(min=1, max=len(CLEAR_CATEGORIES))),
+    vol.Optional('archiveId'): vol.All(str, vol.Match(r'^[0-9a-f]{32}:[0-9]{1,19}$')),
+    vol.Optional('scope'):vol.In(('local','external')),
     vol.Optional('dataset'):vol.In(('minute','daily','battery','jk_logbook')),
     vol.Optional('after',default=0):vol.All(int,vol.Range(min=0,max=2**53-1)),
     vol.Optional('upper',default=0):vol.All(int,vol.Range(min=0,max=2**53-1)),
@@ -273,6 +297,9 @@ async def websocket_archive(hass, connection, msg):
         connection.send_result(msg["id"], app.current(device)); return
     if action == "interface" and "url" not in msg:
         connection.send_error(msg["id"], "invalid_format", "Panel URL is required"); return
+    if action == 'clear_storage' and ('clearCategories' not in msg or 'scope' not in msg or
+            (msg['scope'] == 'external' and 'archiveId' not in msg)):
+        connection.send_error(msg['id'], 'invalid_format', 'Select storage and categories'); return
     if state["admitted_reads"] >= 4:
         connection.send_error(msg["id"], "busy", "Please retry shortly"); return
     state["admitted_reads"] += 1
@@ -290,8 +317,10 @@ async def websocket_archive(hass, connection, msg):
                 result=await hass.async_add_executor_job(app.storage_configuration,device)
             elif action=='configure_storage':
                 result=await hass.async_add_executor_job(app.configure_storage,device,msg['storageSettings'])
+            elif action=='clear_storage':
+                result=await hass.async_add_executor_job(app.clear_storage,device,msg['scope'],msg['clearCategories'],msg.get('archiveId'))
             elif action=='storage_export':
-                result=await hass.async_add_executor_job(app.storage_export,device,msg['scope'],msg['dataset'],
+                result=await hass.async_add_executor_job(app.storage_export,device,msg.get('scope','local'),msg['dataset'],
                     msg['start'],msg['end'],msg['after'],msg['upper'],msg['total'])
             else:
                 result = await hass.async_add_executor_job(getattr(app, action), device,

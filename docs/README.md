@@ -2,7 +2,7 @@
 
 Если ESP уже настроена, начните с [подключения Home Assistant](HOME_ASSISTANT.md#ha). Для первого запуска устройства откройте [подключение](CONNECTION.md#first-start).
 
-[Полная инструкция](USER_GUIDE_RU.md) · [Скачать HTML для чтения без интернета и печати](https://github.com/Tetridanox/Power-Monitor-HA/releases/latest/download/USER_GUIDE_RU.html) · [История версий](../CHANGELOG.md)
+[Полная инструкция](USER_GUIDE_RU.md) · [Інструкція українською](USER_GUIDE_UK.md) · [Українська версія для друку](USER_GUIDE_UK.html) · [Скачать HTML для чтения без интернета и печати](https://github.com/Tetridanox/Power-Monitor-HA/releases/latest/download/USER_GUIDE_RU.html) · [История версий](../CHANGELOG.md)
 
 ## Инструкция по темам
 

@@ -1,6 +1,7 @@
 """Read-only storage accounting and lossless, bounded archive export pages."""
 import base64
 from contextlib import contextmanager
+from functools import lru_cache
 import math
 from pathlib import Path
 import shutil
@@ -12,6 +13,84 @@ from .store import ArchiveError
 from .jk_logbook import latest_windows_connection
 
 DATASETS = ('minute', 'daily', 'battery', 'jk_logbook')
+CLEAR_TABLES = {'history': 'variants', 'battery': 'battery', 'jk_logbook': 'windows'}
+CLEAR_CATEGORIES = (*CLEAR_TABLES, 'metadata')
+DIAGNOSTICS = ('retention-status.json', 'managed-storage-status.json')
+
+
+def deleted_anchor(db, rowid):
+    """Only an explicit local clear can leave a digest in place of a row."""
+    if db.execute("SELECT 1 FROM sqlite_master WHERE name='pm_cleared'").fetchone():
+        row = db.execute('SELECT digest FROM pm_cleared WHERE rowid=?', (rowid,)).fetchone()
+        if row:
+            return row[0].hex()
+    return None
+
+
+def clear_local_table(db, table, digest):
+    # Keep digest-only receipts so a disconnected archive can still verify its
+    # checkpoint. Keep future rowids above the discarded range, including with
+    # an older writer using implicit rowids after a software rollback.
+    deadline = time.monotonic() + 12
+    db.set_progress_handler(lambda: time.monotonic() > deadline, 1000)
+    try:
+        db.execute('BEGIN IMMEDIATE')
+        db.execute('CREATE TABLE IF NOT EXISTS pm_cleared(rowid INTEGER PRIMARY KEY,digest BLOB NOT NULL)')
+        db.execute(f'''CREATE TRIGGER IF NOT EXISTS pm_cleared_rowid AFTER INSERT ON {table}
+            WHEN NEW.rowid <= (SELECT MAX(rowid) FROM pm_cleared)
+            BEGIN UPDATE {table} SET rowid=(SELECT MAX(rowid)+1 FROM pm_cleared)
+            WHERE rowid=NEW.rowid; END''')
+        db.executemany('INSERT INTO pm_cleared VALUES(?,?)',
+            ((row[0], bytes.fromhex(digest(row))) for row in db.execute(f'SELECT rowid,* FROM {table}')))
+        removed = db.execute(f'DELETE FROM {table}').rowcount
+        db.execute('COMMIT')
+        return removed
+    except BaseException:
+        if db.in_transaction:
+            db.set_progress_handler(None, 0)
+            db.execute('ROLLBACK')
+        raise
+    finally:
+        db.set_progress_handler(None, 0)
+
+
+@lru_cache(maxsize=1)
+def vacuum_preserves_indexed_rowids():
+    # SQLite's indexed-table VACUUM regression case. Fail closed on a build
+    # that cannot preserve replication rowids in these indexed v1 databases.
+    db = sqlite3.connect(':memory:', isolation_level=None)
+    try:
+        db.executescript('CREATE TABLE sample(value TEXT PRIMARY KEY); '
+                         "INSERT INTO sample(rowid,value) VALUES(9,'a'),(42,'b'); VACUUM;")
+        return db.execute('SELECT rowid FROM sample ORDER BY rowid').fetchall() == [(9,), (42,)]
+    finally:
+        db.close()
+
+
+def reclaim_local(db, directory, *, force=False):
+    """Return free SQLite pages to the filesystem without changing row IDs."""
+    busy = db.execute('PRAGMA busy_timeout').fetchone()[0]
+    db.execute('PRAGMA busy_timeout=0')
+    try:
+        page_size = db.execute('PRAGMA page_size').fetchone()[0]
+        pages = db.execute('PRAGMA page_count').fetchone()[0]
+        unused = db.execute('PRAGMA freelist_count').fetchone()[0]
+        busy_checkpoint = db.execute('PRAGMA wal_checkpoint(TRUNCATE)').fetchone()[0]
+        if not unused:
+            return not busy_checkpoint
+        deadline = time.monotonic() + 1
+        db.set_progress_handler(lambda: time.monotonic() > deadline, 1000)
+        if db.execute('PRAGMA auto_vacuum').fetchone()[0] == 2:
+            db.execute('PRAGMA incremental_vacuum(256)').fetchall()
+        elif ((force or (unused * page_size >= 1024**2 and unused * 4 >= pages)) and
+              shutil.disk_usage(directory).free > pages * page_size * 2 + 16 * 1024**2 and
+              vacuum_preserves_indexed_rowids()):
+            db.execute('VACUUM')
+        busy_checkpoint = db.execute('PRAGMA wal_checkpoint(TRUNCATE)').fetchone()[0]
+        return not busy_checkpoint and not db.execute('PRAGMA freelist_count').fetchone()[0]
+    finally:
+        db.set_progress_handler(None, 0)
+        db.execute(f'PRAGMA busy_timeout={busy}')
 
 
 @contextmanager

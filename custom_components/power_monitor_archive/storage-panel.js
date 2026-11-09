@@ -1,9 +1,12 @@
-import {t,locale} from './i18n.js?v=1.0.250';
+import {t,locale} from './i18n.js?v=1.0.255';
 
 const NS='http://www.w3.org/2000/svg';
 const names={history:'История мощности и энергии',battery:'История BMS',jk_logbook:'Внутренний журнал JK',metadata:'Служебные данные',combined_archive:'Архив мощности, энергии и BMS'};
 const colors={history:'var(--primary-color,#03a9f4)',battery:'var(--success-color,#43a047)',jk_logbook:'var(--warning-color,#e6a23c)',metadata:'var(--secondary-text-color,#888)',combined_archive:'var(--primary-color,#03a9f4)'};
 const datasets={minute:'Минутная история',daily:'Суточная энергия',battery:'История BMS',jk_logbook:'Внутренний журнал JK'};
+const clearScopes={local:'Память приставки (сервер HA)',external:'Внешний накопитель'};
+const metadataHelp='Служебные данные включают статусы хранения, настройки и метки синхронизации. Очистка сбрасывает только диагностические статусы на сервере HA или освобождает пустые страницы внешней базы. Настройки и метки синхронизации сохраняются.';
+const folderPolicy='После проверенного копирования на отдельный диск локальные копии очищаются. Для папки на диске HA сохраняется 30 дней. При заполнении архива удаляются самые старые записи.';
 export const bytes=value=>{
  if(typeof value!=='number'||!Number.isFinite(value)||value<0)return '—';
  const units=['B','KiB','MiB','GiB','TiB'];let index=0;while(value>=1024&&index<units.length-1){value/=1024;index++}
@@ -106,11 +109,19 @@ function storageDisk(value,title){
 
 export function renderStorage(host){
  const card=host.card(t('Память и данные'));card.classList.add('pm-storage');
- const settings=host.button(t('Настройки хранения'),()=>openStorageSettings(host));settings.dataset.storageFocus='settings';settings.disabled=Boolean(host._storageExport);card.querySelector('header')?.append(settings);
+ const actions=node('div',undefined,'pm-storage-actions');
+ const settings=host.button(t('Настройки хранения'),()=>openStorageSettings(host));settings.dataset.storageFocus='settings';settings.disabled=Boolean(host._storageExport||host._storageClear);actions.append(settings);
+ const clear=host.button(t('Очистить данные'),()=>{
+  host._storageClear={scope:'',categories:new Set(),device:host._device,archiveId:host._storageData?.external?.archiveId};
+  host._storageClearMessage='';host.render();
+ });
+ clear.dataset.storageFocus='clear';clear.disabled=Boolean(!host._storageData||host._storageError||host._storageExport||host._storageClear||host._storageSettingsOpen);actions.append(clear);
+ card.querySelector('header')?.append(actions);
  const style=node('style',`.pm-storage h4{font-size:15px;margin:0 0 14px}.pm-storage-disks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}.pm-storage-disk{min-width:0}.pm-storage-chart{display:flex;gap:20px;align-items:center;flex-wrap:wrap}.pm-storage-ring{position:relative;width:172px;max-width:100%;flex-shrink:0}.pm-storage-ring svg{width:100%;height:auto}.pm-storage-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;pointer-events:none}.pm-storage-center strong{font-size:20px;font-variant-numeric:tabular-nums}.pm-storage-center span{font-size:12px;color:var(--secondary-text-color)}.pm-storage-legend{margin:0;flex:1;min-width:150px;display:grid;gap:12px;font-size:12px}.pm-storage-legend>div{display:flex;justify-content:space-between;gap:12px}.pm-storage-legend dt{display:flex;gap:8px;align-items:center;line-height:1.5}.pm-storage-legend i{height:9px;width:9px;border-radius:50%;flex-shrink:0}.pm-storage-legend dd{margin:0;white-space:nowrap;font-variant-numeric:tabular-nums}.pm-storage-note{margin-top:18px!important}.pm-storage-export{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid var(--pm-border)}.pm-storage-export label{min-width:130px;flex:1}.pm-storage button{min-height:44px}.pm-export-status{margin-top:12px!important;font-size:12px}.pm-jk-log{margin-top:24px;padding-top:22px;border-top:1px solid var(--pm-border)}.pm-jk-log p{margin-top:10px}.pm-jk-table{margin-top:14px;max-height:340px;overflow:auto}.pm-jk-table table{font-size:12px;min-width:100%;width:100%}.pm-jk-table th,.pm-jk-table td{white-space:normal;text-align:left;padding:10px 8px;border-bottom:1px solid var(--pm-border)}.pm-jk-table td:first-child{white-space:nowrap;font-variant-numeric:tabular-nums}.pm-jk-table th{position:sticky;top:0;background:var(--ha-card-background,var(--card-background-color))}@media(max-width:850px){.pm-storage-disks{grid-template-columns:minmax(0,1fr)}}@media(max-width:420px){.pm-storage-chart{gap:16px;justify-content:center}.pm-storage-legend{min-width:100%}.pm-storage-export label{min-width:100%}}`);
- style.textContent+=' .pm-storage .card-heading{flex-wrap:wrap}';card.append(style);const data=host._storageData;
+ style.textContent+=' .pm-storage .card-heading,.pm-storage-actions{display:flex;flex-wrap:wrap;gap:8px}';card.append(style);const data=host._storageData;
  if(!data){card.append(node('p',t(host._storageError?'Не удалось обновить данные':'Загрузка…'),'muted'));return card}
  if(host._storageError)card.append(node('p',t('Не удалось обновить данные'),'error'));
+ if(host._storageClearMessage){const status=node('p',t(host._storageClearMessage),'muted');status.setAttribute('role','status');card.append(status)}
  if(data.local?.recordingPaused)card.append(node('p',t('Запись истории приостановлена: мало места на сервере HA.'),'error'));
  const archiveState=data.external?.policy?.reason;
  if(archiveState==='full'||archiveState==='reclaiming')card.append(node('p',t(archiveState==='full'?'Архив заполнен. Освободите место или увеличьте лимит.':'Освобождается место для новых записей.'),archiveState==='full'?'error':'muted'));
@@ -223,7 +234,7 @@ export function renderStorageDialog(host){
   const choices=node('datalist');choices.id='pm-archive-folders';for(const folder of configuration.folders||[]){const option=node('option');option.value=folder;choices.append(option)}pathRow.append(node('span',t('Папка архива')),path,choices);advanced.append(pathRow);
   const edit=host.button(t('Выбрать другую папку'),()=>{select.value='custom';advanced.open=true;refreshFields();path.focus()});advanced.append(edit);form.append(advanced);
   const limitRow=node('label'),limit=node('input');limit.type='number';limit.name='limitGiB';limit.min=.0625;limit.max=1024;limit.step='any';limit.value=draft.limitGiB;limit.required=true;limit.setAttribute('aria-label',t('Лимит архива, GiB'));limitRow.append(node('span',t('Лимит архива, GiB')),limit);form.append(limitRow);
-  const policy=node('p',t('На сервере — 30 дней. При заполнении архива удаляются самые старые записи.'),'form-help');form.append(policy);
+  const policy=node('p',t(folderPolicy),'form-help');form.append(policy);
   const moved=node('p',t('Смена папки сохраняет прежний архив на месте.'),'form-help');form.append(moved);
   const refreshFields=()=>{
    const selected=places.find(item=>item.id===select.value),folder=select.value!=='local'&&select.value!=='legacy',custom=select.value==='custom';
@@ -234,7 +245,7 @@ export function renderStorageDialog(host){
    const usage=select.value==='local'?configuration.server:selected;
    capacity.textContent=usage?`${t('Свободно на диске')}: ${bytes(usage.freeBytes)}`:custom&&draft.path===configuration.settings?.path?t(configuration.currentKind==='server'?'На сервере Home Assistant':configuration.currentKind==='external'?'Внешний накопитель':'Накопитель недоступен'):'';
    if(!places.length&&select.value==='local')capacity.textContent+=' · '+t('Внешние накопители не найдены');
-   policy.textContent=t(folder?'На сервере — 30 дней. При заполнении архива удаляются самые старые записи.':select.value==='local'?'История хранится на сервере HA.':'Правила хранения задаёт прежняя служба архива.');
+   policy.textContent=t(folder?folderPolicy:select.value==='local'?'История хранится на сервере HA.':'Правила хранения задаёт прежняя служба архива.');
    moved.hidden=!(folder&&configuration.settings?.mode==='folder'&&path.value!==configuration.settings.path);
    host._storageDraft={...host._storageDraft,location:select.value,path:path.value};
   };select.onchange=refreshFields;refreshFields();
@@ -245,5 +256,63 @@ export function renderStorageDialog(host){
  if(host._storageDraft){const save=node('button',t(host._storageSettingsSaving?'Сохранение…':'Сохранить'),'primary');save.type='submit';save.disabled=Boolean(host._storageSettingsSaving);actions.append(save)}form.append(actions);form.onsubmit=event=>{event.preventDefault();saveStorageSettings(host,form)};
  dialog.oncancel=event=>{event.preventDefault();closeStorageSettings(host)};
  if(host._storageSettingsOpen)queueMicrotask(()=>{if(!dialog.isConnected||!host._storageSettingsOpen)return;dialog.showModal();const focus=host._storageDialogFocus;host._storageDialogFocus=null;if(focus){const field=form.elements.namedItem(focus.name);field?.focus({preventScroll:true});if(focus.start!==null)try{field.setSelectionRange(focus.start,focus.end)}catch{}}});
+ return dialog;
+}
+
+export function renderClearDialog(host){
+ const draft=host._storageClear;
+ if(!draft)return null;
+ const dialog=node('dialog');dialog.dataset.storageClear='';dialog.setAttribute('aria-labelledby','storage-clear-title');
+ const heading=node('header',undefined,'dialog-heading'),title=node('h3',t('Очистить данные'));title.id='storage-clear-title';
+ const closeDialog=()=>{
+  if(draft.busy)return;
+  host._storageClear=null;host.render();
+  queueMicrotask(()=>host.shadowRoot.querySelector('[data-storage-focus="clear"]')?.focus({preventScroll:true}));
+ };
+ const close=host.button('×',closeDialog);close.setAttribute('aria-label',t('Закрыть'));close.disabled=Boolean(draft.busy);heading.append(title,close);dialog.append(heading);
+ const form=node('form',undefined,'tariff-form');
+ form.append(node('p',t('Выбранные данные будут удалены для всех устройств Power Monitor только в указанном хранилище. Удаление необратимо.'),'form-help'));
+ const label=node('label'),scope=node('select');scope.name='scope';scope.required=true;
+ const external=host._storageData?.external;
+ for(const [value,name] of [['','Выберите хранилище'],...Object.entries(clearScopes)]){
+  const option=node('option',t(value==='external'&&external?.locationKind==='server'?'Архив на сервере HA':name));option.value=value;
+  if(value==='external')option.disabled=!(external?.clearable&&external.archiveId===draft.archiveId);
+  scope.append(option);
+ }
+ scope.value=draft.scope;scope.disabled=Boolean(draft.busy);label.append(node('span',t('Хранилище')),scope);form.append(label);
+ const list=node('fieldset',undefined,'pm-clear-categories');list.disabled=Boolean(draft.busy);
+ list.append(node('legend',t('Какие данные удалить')));
+ for(const [key,name] of Object.entries(names).filter(([key])=>key!=='combined_archive')){
+  const row=node('label'),input=node('input');input.name=key;input.type='checkbox';input.checked=draft.categories.has(key);
+  input.onchange=()=>{if(input.checked)draft.categories.add(key);else draft.categories.delete(key);update()};
+  row.append(input,node('span',t(key==='jk_logbook'?'Логи BMS (журнал JK)':name)));list.append(row);
+ }
+ form.append(list,node('p',t(metadataHelp),'form-help'));
+ if(draft.error){const error=node('p',t(draft.error),'error');error.setAttribute('role','alert');form.append(error)}
+ const actions=node('div',undefined,'form-actions'),cancel=host.button(t('Отмена'),closeDialog);
+ cancel.name='cancel';cancel.autofocus=true;cancel.disabled=Boolean(draft.busy);
+ const submit=node('button',t(draft.busy?'Очистка…':'Удалить выбранное'),'pm-clear-confirm');submit.name='submit';submit.type='submit';
+ const update=()=>{submit.disabled=Boolean(draft.busy||draft.error||!draft.scope||!draft.categories.size||scope.value!==draft.scope||scope.selectedOptions[0]?.disabled)};
+ scope.onchange=()=>{draft.scope=scope.value;update()};update();actions.append(cancel,submit);form.append(actions);dialog.append(form);
+ form.onsubmit=async event=>{
+  event.preventDefault();if(submit.disabled||draft.busy)return;
+  draft.busy=true;host.render();
+  try{
+   const result=await host.request('clear_storage',{scope:draft.scope,clearCategories:[...draft.categories],...(draft.scope==='external'?{archiveId:draft.archiveId}:{})});
+   if(host._storageClear!==draft||host._device!==draft.device)return;
+   if(result.failed?.length)draft.error='Часть данных не удалось удалить. Проверьте обновлённые размеры хранилищ.';
+   else host._storageClearMessage=result.compacting||result.reclaimDeferred?.length?'Очистка завершена. Освобождение места может занять время.':'Очистка завершена.';
+  }catch{
+   if(host._storageClear===draft)draft.error='Результат очистки не подтверждён. Проверьте обновлённые данные перед повтором.';
+  }finally{
+   if(host._storageClear===draft){draft.busy=false;if(!draft.error)closeDialog();else host.render();await host.load()}
+  }
+ };
+ dialog.oncancel=event=>{event.preventDefault();closeDialog()};
+ queueMicrotask(()=>{
+  if(!dialog.isConnected||host._storageClear!==draft)return;
+  dialog.showModal();
+  if(draft.focus)form.elements.namedItem(draft.focus)?.focus({preventScroll:true});
+ });
  return dialog;
 }

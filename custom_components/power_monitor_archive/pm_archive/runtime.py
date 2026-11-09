@@ -16,10 +16,11 @@ import http.client
 from .store import ArchiveError, ArchiveStore, unpack_minute, resolve_minute_extensions
 from .sync import Source, Synchronizer
 from .analytics import AnalyticsStore, read_battery, cost_settings, minute_cost
-from .external_history import ExternalHistory, archive_query
+from .external_history import ExternalHistory, archive_query, row_digest, wire_row
 from .retention import LocalRetention
-from .jk_logbook import JkLogbookStore, latest_windows
-from .storage import local_storage, export_page
+from .jk_logbook import JkLogbookStore, latest_windows, wire_window, window_anchor
+from .storage import (CLEAR_CATEGORIES, CLEAR_TABLES, DIAGNOSTICS, clear_local_table, export_page,
+                      local_storage, reclaim_local)
 from .managed_storage import (ManagedHistory, StorageWorker, load_settings, settings as storage_settings,
                               prepare_folder, save_json, folder_choices, local_space, storage_locations, SETTINGS)
 
@@ -130,6 +131,7 @@ class Application:
         self.storage_worker_error = None
         self.storage_ready = threading.Event()
         self.storage_pressure = {'recordingPaused': False}
+        self.local_reclaims = set()
         self.space_due = 0
         self.storage_settings = {'mode': 'local', 'path': '', 'limitBytes': 10 * 1024**3}
         if config.get('externalHistory', True):
@@ -326,6 +328,10 @@ class Application:
             except (OSError, sqlite3.Error, ArchiveError) as error:
                 self.analytics_error = type(error).__name__
             try:
+                for category, target in (('history', store), ('battery', analytics), ('jk_logbook', logbooks)):
+                    if target is not None and target.connection.execute(
+                            "SELECT 1 FROM sqlite_master WHERE name='pm_cleared'").fetchone():
+                        self.local_reclaims.add(category)
                 self.storage_worker = StorageWorker(self)
                 self.storage_worker.thread.start()
                 syncs, due, live_due, signatures, live_failures = {}, {}, {}, {}, {}
@@ -334,6 +340,8 @@ class Application:
                     retention.reader = self.external_history
                     if time.monotonic() >= self.space_due:
                         self.space_due = time.monotonic() + 30
+                        if time.monotonic() >= self.ota_quiet_until:
+                            self._reclaim_pending(store, analytics, logbooks)
                         try: self.storage_pressure = local_space(self.data)
                         except OSError: self.storage_pressure = {'recordingPaused': True}
                     with self.lock:
@@ -418,7 +426,9 @@ class Application:
                                 self.states[device] = {"deviceId": device, "generation": sync.generation, **sync.status}
                     self._interface_pass(syncs)
                     self._device_pass(syncs)
-                    retention.step(store, analytics, logbooks)
+                    self._local_clear_pass(store, analytics, logbooks)
+                    if time.monotonic() >= self.ota_quiet_until:
+                        retention.step(store, analytics, logbooks)
                     self._wait_for_work()
             finally:
                 self.stop.set(); self.storage_ready.set()
@@ -437,7 +447,8 @@ class Application:
         # queued work visible here or sets the event after the check; no lost wake.
         self.work_ready.clear()
         with self.lock:
-            pending = bool(self.device_commands) or self.interface_command is not None
+            pending = (bool(self.device_commands) or self.interface_command is not None or
+                       (self.storage_command or {}).get('scope') == 'local')
         if not pending and not self.stop.is_set():
             self.work_ready.wait(0.2)
 
@@ -521,25 +532,100 @@ class Application:
         paired = self._storage_binding(device)
         command = {'paired': paired, 'settings': storage_settings(value), 'done': threading.Event(),
                    'deadline': time.monotonic() + 15}
+        self._submit_storage(command)
+        self._storage_guard(paired)
+        return self.storage_configuration(device)
+
+    def _submit_storage(self, command):
         with self.lock:
             if self.storage_command is not None or self.stop.is_set() or self.writer_error or self.storage_worker_error:
                 raise ArchiveError('storage owner busy')
             self.storage_command = command
-            self.storage_ready.set()
+            (self.work_ready if command.get('scope') == 'local' else self.storage_ready).set()
         if not command['done'].wait(60):
-            raise ArchiveError('storage result not confirmed; read settings before retrying')
+            raise ArchiveError('storage result not confirmed; read current storage before retrying')
         if 'error' in command: raise ArchiveError(command['error'])
-        self._storage_guard(paired)
-        return self.storage_configuration(device)
+
+    def clear_storage(self, device, scope, categories, archive_id):
+        paired = self._storage_binding(device)
+        if (scope not in ('local', 'external') or not isinstance(categories, list) or not categories or
+                any(key not in CLEAR_CATEGORIES for key in categories) or len(set(categories)) != len(categories) or
+                (scope == 'external' and not archive_id)):
+            raise ArchiveError('invalid clear request')
+        command = {'paired': paired, 'scope': scope, 'categories': categories, 'archiveId': archive_id,
+                   'done': threading.Event(), 'deadline': time.monotonic() + 15}
+        self._submit_storage(command)
+        return command['result']
+
+    def _local_clear_pass(self, store, analytics, logbooks):
+        with self.lock:
+            command = self.storage_command
+        if not command or command.get('scope') != 'local':
+            return
+        removed, failed, deferred = {}, [], []
+        stores = {'history': store, 'battery': analytics, 'jk_logbook': logbooks}
+        try:
+            self._storage_guard(command['paired'])
+            if time.monotonic() > command['deadline'] or time.monotonic() < self.ota_quiet_until:
+                raise ArchiveError('storage owner busy')
+            for category in command['categories']:
+                try:
+                    if category == 'metadata':
+                        count = 0
+                        for filename in DIAGNOSTICS:
+                            path = self.data / filename
+                            if path.is_file() and not path.is_symlink():
+                                path.unlink()
+                                count += 1
+                        removed[category] = count
+                        continue
+                    target = stores[category]
+                    if target is None:
+                        raise ArchiveError('local database unavailable')
+                    db = target.connection
+                    table = CLEAR_TABLES[category]
+                    digest = (lambda row: window_anchor(wire_window(row))) if table == 'windows' else (
+                        lambda row: row_digest(wire_row(table, row)))
+                    removed[category] = clear_local_table(db, table, digest)
+                    try:
+                        if not reclaim_local(db, self.data, force=True):
+                            deferred.append(category)
+                    except (OSError, sqlite3.Error):
+                        deferred.append(category)
+                except (OSError, ValueError, sqlite3.Error):
+                    failed.append(category)
+            self.space_due = 0
+            self.local_reclaims.update(deferred)
+            command['result'] = {'removed': removed, 'failed': failed, 'reclaimDeferred': deferred}
+        except (OSError, ValueError, sqlite3.Error) as error:
+            command['error'] = type(error).__name__
+        finally:
+            with self.lock: self.storage_command = None
+            command['done'].set()
+
+    def _reclaim_pending(self, store, analytics, logbooks):
+        for category, target in (('history', store), ('battery', analytics), ('jk_logbook', logbooks)):
+            if category in self.local_reclaims:
+                try:
+                    if reclaim_local(target.connection, self.data, force=True):
+                        self.local_reclaims.remove(category)
+                except (OSError, sqlite3.Error):
+                    pass  # A busy reader or insufficient disk space can clear later.
 
     def _storage_config_pass(self):
         with self.lock: command = self.storage_command
-        if command is None: return
+        if command is None or command.get('scope') == 'local': return
         try:
             self._storage_guard(command['paired'])
             if time.monotonic() > command['deadline']: raise ArchiveError('storage command expired')
-            value = command['settings']
             old = self.external_history
+            if command.get('scope') == 'external':
+                if not isinstance(old, ManagedHistory) or time.monotonic() < self.ota_quiet_until:
+                    raise ArchiveError('external archive unavailable')
+                removed = old.clear(self, command['categories'], command['archiveId'])
+                command['result'] = {'removed': removed, 'failed': [], 'compacting': True}
+                return
+            value = command['settings']
             if value['mode'] == 'folder':
                 if isinstance(old, ExternalHistory):
                     try: active = old.request('/v1/status').get('ready') is True
@@ -584,6 +670,7 @@ class Application:
                           'configured':True,'backend':reader.backend}
                 if isinstance(reader,ManagedHistory):
                     external['locationKind']='server' if reader.root.stat().st_dev==self.data.stat().st_dev else 'external'
+                    external['clearable'] = True
                 if self.external_history is not reader:raise ArchiveError('archive changed during storage read')
             except (OSError,ValueError,sqlite3.Error,http.client.HTTPException):
                 external={'configured':True,'backend':reader.backend,

@@ -501,285 +501,300 @@ views:
               action: "more-info"
     cards:
       -
-        type: "vertical-stack"
-        cards:
-          -
-            type: "custom:mushroom-title-card"
-            title: "Потоки энергии"
-          -
-            type: "custom:power-flow-card-plus"
-            clickable_entities: true
-            display_zero_lines:
-              mode: "show"
-            use_new_flow_rate_model: true
-            min_flow_rate: 5
-            max_flow_rate: 5
-            min_expected_power: 50
-            max_expected_power: 4500
-            base_decimals: 0
-            kilo_decimals: 2
-            kilo_threshold: 1000
-            entities:
-              grid:
-                entity: "__PM_grid_power__"
-                name: "Сеть"
-                icon: "mdi:transmission-tower"
-                display_state: "one_way"
-                color_circle: true
-                color_icon: true
-                color_value: true
-                display_zero_tolerance: 5
-              solar:
-                entity: "__PM_pv_power__"
-                name: "Солнце"
-                icon: "mdi:solar-panel-large"
-                color: "#ffb74d"
-                color_icon: true
-                color_value: true
-                display_zero: true
-                display_zero_tolerance: 5
-              battery:
-                entity: "__PM_battery_power__"
-                state_of_charge: "__PM_battery_soc__"
-                name: "АКБ"
-                icon: "mdi:home-battery"
-                color_circle: "color_dynamically"
-                color_state_of_charge_value: "color_dynamically"
-                color_icon: true
-                color_value: true
-                invert_state: true
-                display_zero_tolerance: 5
-              home:
-                entity: "__PM_load_power__"
-                name: "Нагрузка"
-                icon: "mdi:home-lightning-bolt"
-                override_state: true
-                color_icon: "solar"
-                color_value: true
-            card_mod:
-              style: |
-                ha-card {
-                  border-radius: 20px;
-                  border: 1px solid var(--divider-color);
-                  background: var(--ha-card-background, var(--card-background-color));
-                  color: var(--primary-text-color);
-                  box-shadow: var(--ha-card-box-shadow, none);
-                  overflow: hidden;
-                }
-          -
-            type: "custom:mushroom-title-card"
-            title: "Состояние системы"
-          -
-            type: "grid"
-            columns: 2
-            square: false
-            cards:
-              -
-                type: "custom:button-card"
-                template: "status"
-                entity: "__PM_inverter_available__"
-                name: "Инвертор"
-                icon: "mdi:solar-power-variant"
-              -
-                type: "custom:button-card"
-                template: "status"
-                entity: "__PM_bms_available__"
-                name: "BMS"
-                icon: "mdi:battery-heart-variant"
-              -
-                type: "custom:button-card"
-                template: "status"
-                entity: "__PM_grid_present__"
-                name: "Внешняя сеть"
-                icon: "mdi:transmission-tower"
-              -
-                type: "custom:button-card"
-                template: "status"
-                entity: "__PM_operating_mode__"
-                name: "Режим инвертора"
-                icon: "mdi:cog-transfer-outline"
-                variables:
-                  accent: "#a78bfa"
-          -
-            type: "custom:power-monitor-forecast-card"
-            device: "__PM_DEVICE__"
-            show_city: false
-            show_period: false
-            show_units: false
-            show_note: false
+        type: "custom:mod-card"
+        card_mod:
+          style: "ha-card { box-sizing: border-box; padding: 0 var(--ha-space-2, 8px) var(--ha-space-3, 12px); background: transparent; border: 0; box-shadow: none; }"
+        card:
+          type: "vertical-stack"
+          cards:
+            -
+              type: "custom:mushroom-title-card"
+              title: "Потоки энергии"
+            -
+              type: "custom:power-flow-card-plus"
+              clickable_entities: true
+              display_zero_lines:
+                mode: "show"
+              use_new_flow_rate_model: true
+              min_flow_rate: 5
+              max_flow_rate: 5
+              min_expected_power: 50
+              max_expected_power: 4500
+              base_decimals: 0
+              kilo_decimals: 2
+              kilo_threshold: 1000
+              entities:
+                grid:
+                  entity: "__PM_grid_power__"
+                  name: "Сеть"
+                  icon: "mdi:transmission-tower"
+                  display_state: "one_way"
+                  color_circle: true
+                  color_icon: true
+                  color_value: true
+                  display_zero_tolerance: 5
+                solar:
+                  entity: "__PM_pv_power__"
+                  name: "Солнце"
+                  icon: "mdi:solar-panel-large"
+                  color: "#ffb74d"
+                  color_icon: true
+                  color_value: true
+                  display_zero: true
+                  display_zero_tolerance: 5
+                battery:
+                  entity: "__PM_battery_power__"
+                  state_of_charge: "__PM_battery_soc__"
+                  name: "АКБ"
+                  icon: "mdi:home-battery"
+                  color_circle: "color_dynamically"
+                  color_state_of_charge_value: "color_dynamically"
+                  color_icon: true
+                  color_value: true
+                  invert_state: true
+                  display_zero_tolerance: 5
+                home:
+                  entity: "__PM_load_power__"
+                  name: "Нагрузка"
+                  icon: "mdi:home-lightning-bolt"
+                  override_state: true
+                  color_icon: "solar"
+                  color_value: true
+              card_mod:
+                style: |
+                  ha-card {
+                    border-radius: 20px;
+                    border: 1px solid var(--divider-color);
+                    background: var(--ha-card-background, var(--card-background-color));
+                    color: var(--primary-text-color);
+                    box-shadow: var(--ha-card-box-shadow, none);
+                    overflow: hidden;
+                  }
+            -
+              type: "custom:mushroom-title-card"
+              title: "Состояние системы"
+            -
+              type: "grid"
+              columns: 2
+              square: false
+              cards:
+                -
+                  type: "custom:button-card"
+                  template: "status"
+                  entity: "__PM_inverter_available__"
+                  name: "Инвертор"
+                  icon: "mdi:solar-power-variant"
+                -
+                  type: "custom:button-card"
+                  template: "status"
+                  entity: "__PM_bms_available__"
+                  name: "BMS"
+                  icon: "mdi:battery-heart-variant"
+                -
+                  type: "custom:button-card"
+                  template: "status"
+                  entity: "__PM_grid_present__"
+                  name: "Внешняя сеть"
+                  icon: "mdi:transmission-tower"
+                -
+                  type: "custom:button-card"
+                  template: "status"
+                  entity: "__PM_operating_mode__"
+                  name: "Режим инвертора"
+                  icon: "mdi:cog-transfer-outline"
+                  variables:
+                    accent: "#a78bfa"
+            -
+              type: "custom:power-monitor-forecast-card"
+              device: "__PM_DEVICE__"
+              show_city: false
+              show_period: false
+              show_units: false
+              show_note: false
+        report_size: 5
       -
-        type: "vertical-stack"
-        cards:
-          -
-            type: "custom:mushroom-title-card"
-            title: "Энергия сегодня"
-          -
-            type: "grid"
-            columns: 2
-            square: false
-            cards:
-              -
-                type: "custom:button-card"
-                template: "metric"
-                entity: "__PM_autonomy_today__"
-                name: "Автономность сегодня"
-                icon: "mdi:shield-sun"
-                variables:
-                  accent: "#55d6a9"
-                  max_value: 100
-              -
-                type: "custom:button-card"
-                template: "metric"
-                entity: "__PM_load_energy_today__"
-                name: "Энергия нагрузки"
-                icon: "mdi:home-lightning-bolt"
-                variables:
-                  accent: "#42a5f5"
-                  max_value: 25
-              -
-                type: "custom:button-card"
-                template: "metric"
-                entity: "__PM_grid_import_today__"
-                name: "Получено из сети"
-                icon: "mdi:transmission-tower-import"
-                variables:
-                  accent: "#ef6a73"
-                  max_value: 25
-              -
-                type: "custom:button-card"
-                template: "metric"
-                entity: "__PM_pv_energy_today__"
-                name: "Выработка PV"
-                icon: "mdi:solar-power"
-                variables:
-                  accent: "#ffb74d"
-                  max_value: 25
-              -
-                type: "custom:button-card"
-                template: "metric"
-                entity: "__PM_battery_charge_energy_today__"
-                name: "Заряд АКБ"
-                icon: "mdi:battery-arrow-up"
-                variables:
-                  accent: "#a78bfa"
-                  max_value: 15
-              -
-                type: "custom:button-card"
-                template: "metric"
-                entity: "__PM_battery_discharge_energy_today__"
-                name: "Разряд АКБ"
-                icon: "mdi:battery-arrow-down"
-                variables:
-                  accent: "#22d3ee"
-                  max_value: 15
-          -
-            type: "custom:mushroom-title-card"
-            title: "Сеть и нагрузка"
-          -
-            type: "grid"
-            columns: 2
-            square: false
-            cards:
-              -
-                type: "custom:button-card"
-                template: "metric"
-                entity: "__PM_grid_voltage__"
-                name: "Напряжение сети"
-                icon: "mdi:transmission-tower"
-                variables:
-                  accent: "#42a5f5"
-                  max_value: 260
-              -
-                type: "custom:button-card"
-                template: "metric"
-                entity: "__PM_load_power__"
-                name: "Мощность нагрузки"
-                icon: "mdi:home-lightning-bolt"
-                variables:
-                  accent: "#ffb74d"
-                  max_value: 4500
+        type: "custom:mod-card"
+        card_mod:
+          style: "ha-card { box-sizing: border-box; padding: 0 var(--ha-space-2, 8px) var(--ha-space-3, 12px); background: transparent; border: 0; box-shadow: none; }"
+        card:
+          type: "vertical-stack"
+          cards:
+            -
+              type: "custom:mushroom-title-card"
+              title: "Энергия сегодня"
+            -
+              type: "grid"
+              columns: 2
+              square: false
+              cards:
+                -
+                  type: "custom:button-card"
+                  template: "metric"
+                  entity: "__PM_autonomy_today__"
+                  name: "Автономность сегодня"
+                  icon: "mdi:shield-sun"
+                  variables:
+                    accent: "#55d6a9"
+                    max_value: 100
+                -
+                  type: "custom:button-card"
+                  template: "metric"
+                  entity: "__PM_load_energy_today__"
+                  name: "Энергия нагрузки"
+                  icon: "mdi:home-lightning-bolt"
+                  variables:
+                    accent: "#42a5f5"
+                    max_value: 25
+                -
+                  type: "custom:button-card"
+                  template: "metric"
+                  entity: "__PM_grid_import_today__"
+                  name: "Получено из сети"
+                  icon: "mdi:transmission-tower-import"
+                  variables:
+                    accent: "#ef6a73"
+                    max_value: 25
+                -
+                  type: "custom:button-card"
+                  template: "metric"
+                  entity: "__PM_pv_energy_today__"
+                  name: "Выработка PV"
+                  icon: "mdi:solar-power"
+                  variables:
+                    accent: "#ffb74d"
+                    max_value: 25
+                -
+                  type: "custom:button-card"
+                  template: "metric"
+                  entity: "__PM_battery_charge_energy_today__"
+                  name: "Заряд АКБ"
+                  icon: "mdi:battery-arrow-up"
+                  variables:
+                    accent: "#a78bfa"
+                    max_value: 15
+                -
+                  type: "custom:button-card"
+                  template: "metric"
+                  entity: "__PM_battery_discharge_energy_today__"
+                  name: "Разряд АКБ"
+                  icon: "mdi:battery-arrow-down"
+                  variables:
+                    accent: "#22d3ee"
+                    max_value: 15
+            -
+              type: "custom:mushroom-title-card"
+              title: "Сеть и нагрузка"
+            -
+              type: "grid"
+              columns: 2
+              square: false
+              cards:
+                -
+                  type: "custom:button-card"
+                  template: "metric"
+                  entity: "__PM_grid_voltage__"
+                  name: "Напряжение сети"
+                  icon: "mdi:transmission-tower"
+                  variables:
+                    accent: "#42a5f5"
+                    max_value: 260
+                -
+                  type: "custom:button-card"
+                  template: "metric"
+                  entity: "__PM_load_power__"
+                  name: "Мощность нагрузки"
+                  icon: "mdi:home-lightning-bolt"
+                  variables:
+                    accent: "#ffb74d"
+                    max_value: 4500
+        report_size: 5
       -
-        type: "vertical-stack"
-        cards:
-          -
-            type: "custom:mushroom-title-card"
-            title: "Банк аккумуляторов"
-          -
-            type: "grid"
-            columns: 2
-            square: false
-            cards:
-              -
-                type: "custom:button-card"
-                template: "metric"
-                entity: "__PM_remaining_energy__"
-                name: "Ост. ёмкость"
-                icon: "mdi:battery-clock"
-                variables:
-                  accent: "#22d3ee"
-                  max_value: "[[[ const value=Number(entity?.state),soc=Number(hass.states['__PM_battery_soc__']?.state); return Number.isFinite(value)&&Number.isFinite(soc)&&soc>0?Math.max(value*100/soc,0.01):1; ]]]"
-                triggers_update:
-                  - "__PM_battery_soc__"
-              -
-                type: "custom:button-card"
-                template: "metric"
-                entity: "__PM_cell_delta__"
-                name: "Общий разброс ячеек"
-                icon: "mdi:vector-difference"
-                variables:
-                  accent: "#ab47bc"
-                  max_value: 0.05
-          -
-            type: "custom:button-card"
-            template: "balance"
-            entity: "__PM_balancing__"
-            variables:
-              bms_name: "Банк"
-              current_entity: "__PM_bms_balance_current__"
-          -
-            type: "custom:mushroom-title-card"
-            title: "Батарея и мощность"
-          -
-            type: "grid"
-            columns: 2
-            square: false
-            cards:
-              -
-                type: "custom:button-card"
-                template: "battery_soc"
-                entity: "__PM_battery_soc__"
-                name: "Заряд АКБ (SOC)"
-                icon: "mdi:battery-high"
-                variables:
-                  accent: "#55d6a9"
-                  max_value: 100
-              -
-                type: "custom:button-card"
-                template: "metric"
-                entity: "__PM_battery_voltage__"
-                name: "Напряжение АКБ"
-                icon: "mdi:sine-wave"
-                variables:
-                  accent: "#22d3ee"
-                  max_value: 60
-              -
-                type: "custom:button-card"
-                template: "metric"
-                entity: "__PM_battery_power__"
-                name: "Мощность АКБ"
-                icon: "mdi:flash"
-                variables:
-                  accent: "#a78bfa"
-                  max_value: 3500
-              -
-                type: "custom:button-card"
-                template: "metric"
-                entity: "__PM_battery_current__"
-                name: "Ток АКБ"
-                icon: "mdi:current-dc"
-                variables:
-                  accent: "#ff7043"
-                  max_value: 70
+        type: "custom:mod-card"
+        card_mod:
+          style: "ha-card { box-sizing: border-box; padding: 0 var(--ha-space-2, 8px) var(--ha-space-3, 12px); background: transparent; border: 0; box-shadow: none; }"
+        card:
+          type: "vertical-stack"
+          cards:
+            -
+              type: "custom:mushroom-title-card"
+              title: "Банк аккумуляторов"
+            -
+              type: "grid"
+              columns: 2
+              square: false
+              cards:
+                -
+                  type: "custom:button-card"
+                  template: "metric"
+                  entity: "__PM_remaining_energy__"
+                  name: "Ост. ёмкость"
+                  icon: "mdi:battery-clock"
+                  variables:
+                    accent: "#22d3ee"
+                    max_value: "[[[ const value=Number(entity?.state),soc=Number(hass.states['__PM_battery_soc__']?.state); return Number.isFinite(value)&&Number.isFinite(soc)&&soc>0?Math.max(value*100/soc,0.01):1; ]]]"
+                  triggers_update:
+                    - "__PM_battery_soc__"
+                -
+                  type: "custom:button-card"
+                  template: "metric"
+                  entity: "__PM_cell_delta__"
+                  name: "Общий разброс ячеек"
+                  icon: "mdi:vector-difference"
+                  variables:
+                    accent: "#ab47bc"
+                    max_value: 0.05
+            -
+              type: "custom:button-card"
+              template: "balance"
+              entity: "__PM_balancing__"
+              variables:
+                bms_name: "Банк"
+                current_entity: "__PM_bms_balance_current__"
+            -
+              type: "custom:mushroom-title-card"
+              title: "Батарея и мощность"
+            -
+              type: "grid"
+              columns: 2
+              square: false
+              cards:
+                -
+                  type: "custom:button-card"
+                  template: "battery_soc"
+                  entity: "__PM_battery_soc__"
+                  name: "Заряд АКБ (SOC)"
+                  icon: "mdi:battery-high"
+                  variables:
+                    accent: "#55d6a9"
+                    max_value: 100
+                -
+                  type: "custom:button-card"
+                  template: "metric"
+                  entity: "__PM_battery_voltage__"
+                  name: "Напряжение АКБ"
+                  icon: "mdi:sine-wave"
+                  variables:
+                    accent: "#22d3ee"
+                    max_value: 60
+                -
+                  type: "custom:button-card"
+                  template: "metric"
+                  entity: "__PM_battery_power__"
+                  name: "Мощность АКБ"
+                  icon: "mdi:flash"
+                  variables:
+                    accent: "#a78bfa"
+                    max_value: 3500
+                -
+                  type: "custom:button-card"
+                  template: "metric"
+                  entity: "__PM_battery_current__"
+                  name: "Ток АКБ"
+                  icon: "mdi:current-dc"
+                  variables:
+                    accent: "#ff7043"
+                    max_value: 70
+        report_size: 5
   -
     title: "Диагностика"
     path: "diagnostics"
@@ -1502,6 +1517,9 @@ views:
                         graph:
                           card:
                             type: "custom:apexcharts-card"
+                            apex_config:
+                              chart:
+                                fontFamily: "\"Power Monitor Montserrat\", sans-serif"
                             graph_span: "24h"
                             update_interval: "1min"
                             header:
@@ -2371,6 +2389,9 @@ views:
                         graph:
                           card:
                             type: "custom:apexcharts-card"
+                            apex_config:
+                              chart:
+                                fontFamily: "\"Power Monitor Montserrat\", sans-serif"
                             graph_span: "24h"
                             update_interval: "1min"
                             header:
@@ -3614,6 +3635,366 @@ views:
                         template: "metric"
                         entity: "__PM_warning_value__"
                         name: "Значение предупреждения"
+                        icon: "mdi:flash"
+                        variables:
+                          accent: "#26c6da"
+                          max_value: 6000
+                        styles:
+                          card:
+                            -
+                              height: "auto"
+                            -
+                              "min-height": "126px"
+                            -
+                              padding: "16px clamp(12px,calc(25vw - 68px),17px)"
+                        extra_styles: |-
+                          .pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }
+                          .pm-metric-grid .pm-metric-icon { grid-row:2 !important; }
+                          .pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }
+                    -
+                      type: "conditional"
+                      conditions:
+                        -
+                          condition: "state"
+                          entity: "__PM_inverter_ac_voltage__"
+                          state_not:
+                            - "unknown"
+                            - "unavailable"
+                      card:
+                        type: "custom:button-card"
+                        template: "metric"
+                        entity: "__PM_inverter_ac_voltage__"
+                        name: "Напряжение AC-модуля"
+                        icon: "mdi:flash"
+                        variables:
+                          accent: "#26c6da"
+                          max_value: 6000
+                        styles:
+                          card:
+                            -
+                              height: "auto"
+                            -
+                              "min-height": "126px"
+                            -
+                              padding: "16px clamp(12px,calc(25vw - 68px),17px)"
+                        extra_styles: |-
+                          .pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }
+                          .pm-metric-grid .pm-metric-icon { grid-row:2 !important; }
+                          .pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }
+                    -
+                      type: "conditional"
+                      conditions:
+                        -
+                          condition: "state"
+                          entity: "__PM_inverter_ac_current__"
+                          state_not:
+                            - "unknown"
+                            - "unavailable"
+                      card:
+                        type: "custom:button-card"
+                        template: "metric"
+                        entity: "__PM_inverter_ac_current__"
+                        name: "Ток AC-модуля"
+                        icon: "mdi:flash"
+                        variables:
+                          accent: "#26c6da"
+                          max_value: 6000
+                        styles:
+                          card:
+                            -
+                              height: "auto"
+                            -
+                              "min-height": "126px"
+                            -
+                              padding: "16px clamp(12px,calc(25vw - 68px),17px)"
+                        extra_styles: |-
+                          .pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }
+                          .pm-metric-grid .pm-metric-icon { grid-row:2 !important; }
+                          .pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }
+                    -
+                      type: "conditional"
+                      conditions:
+                        -
+                          condition: "state"
+                          entity: "__PM_inverter_ac_frequency__"
+                          state_not:
+                            - "unknown"
+                            - "unavailable"
+                      card:
+                        type: "custom:button-card"
+                        template: "metric"
+                        entity: "__PM_inverter_ac_frequency__"
+                        name: "Частота AC-модуля"
+                        icon: "mdi:flash"
+                        variables:
+                          accent: "#26c6da"
+                          max_value: 6000
+                        styles:
+                          card:
+                            -
+                              height: "auto"
+                            -
+                              "min-height": "126px"
+                            -
+                              padding: "16px clamp(12px,calc(25vw - 68px),17px)"
+                        extra_styles: |-
+                          .pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }
+                          .pm-metric-grid .pm-metric-icon { grid-row:2 !important; }
+                          .pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }
+                    -
+                      type: "conditional"
+                      conditions:
+                        -
+                          condition: "state"
+                          entity: "__PM_inverter_ac_power__"
+                          state_not:
+                            - "unknown"
+                            - "unavailable"
+                      card:
+                        type: "custom:button-card"
+                        template: "metric"
+                        entity: "__PM_inverter_ac_power__"
+                        name: "Мощность AC-модуля"
+                        icon: "mdi:flash"
+                        variables:
+                          accent: "#26c6da"
+                          max_value: 6000
+                        styles:
+                          card:
+                            -
+                              height: "auto"
+                            -
+                              "min-height": "126px"
+                            -
+                              padding: "16px clamp(12px,calc(25vw - 68px),17px)"
+                        extra_styles: |-
+                          .pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }
+                          .pm-metric-grid .pm-metric-icon { grid-row:2 !important; }
+                          .pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }
+                    -
+                      type: "conditional"
+                      conditions:
+                        -
+                          condition: "state"
+                          entity: "__PM_inverter_battery_average_current__"
+                          state_not:
+                            - "unknown"
+                            - "unavailable"
+                      card:
+                        type: "custom:button-card"
+                        template: "metric"
+                        entity: "__PM_inverter_battery_average_current__"
+                        name: "Средний ток АКБ по инвертору"
+                        icon: "mdi:flash"
+                        variables:
+                          accent: "#26c6da"
+                          max_value: 6000
+                        styles:
+                          card:
+                            -
+                              height: "auto"
+                            -
+                              "min-height": "126px"
+                            -
+                              padding: "16px clamp(12px,calc(25vw - 68px),17px)"
+                        extra_styles: |-
+                          .pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }
+                          .pm-metric-grid .pm-metric-icon { grid-row:2 !important; }
+                          .pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }
+                    -
+                      type: "conditional"
+                      conditions:
+                        -
+                          condition: "state"
+                          entity: "__PM_inverter_battery_current__"
+                          state_not:
+                            - "unknown"
+                            - "unavailable"
+                      card:
+                        type: "custom:button-card"
+                        template: "metric"
+                        entity: "__PM_inverter_battery_current__"
+                        name: "Ток АКБ по инвертору"
+                        icon: "mdi:flash"
+                        variables:
+                          accent: "#26c6da"
+                          max_value: 6000
+                        styles:
+                          card:
+                            -
+                              height: "auto"
+                            -
+                              "min-height": "126px"
+                            -
+                              padding: "16px clamp(12px,calc(25vw - 68px),17px)"
+                        extra_styles: |-
+                          .pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }
+                          .pm-metric-grid .pm-metric-icon { grid-row:2 !important; }
+                          .pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }
+                    -
+                      type: "conditional"
+                      conditions:
+                        -
+                          condition: "state"
+                          entity: "__PM_inverter_battery_power__"
+                          state_not:
+                            - "unknown"
+                            - "unavailable"
+                      card:
+                        type: "custom:button-card"
+                        template: "metric"
+                        entity: "__PM_inverter_battery_power__"
+                        name: "Мощность АКБ по инвертору"
+                        icon: "mdi:flash"
+                        variables:
+                          accent: "#26c6da"
+                          max_value: 6000
+                        styles:
+                          card:
+                            -
+                              height: "auto"
+                            -
+                              "min-height": "126px"
+                            -
+                              padding: "16px clamp(12px,calc(25vw - 68px),17px)"
+                        extra_styles: |-
+                          .pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }
+                          .pm-metric-grid .pm-metric-icon { grid-row:2 !important; }
+                          .pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }
+                    -
+                      type: "conditional"
+                      conditions:
+                        -
+                          condition: "state"
+                          entity: "__PM_inverter_battery_voltage__"
+                          state_not:
+                            - "unknown"
+                            - "unavailable"
+                      card:
+                        type: "custom:button-card"
+                        template: "metric"
+                        entity: "__PM_inverter_battery_voltage__"
+                        name: "Напряжение АКБ по инвертору"
+                        icon: "mdi:flash"
+                        variables:
+                          accent: "#26c6da"
+                          max_value: 6000
+                        styles:
+                          card:
+                            -
+                              height: "auto"
+                            -
+                              "min-height": "126px"
+                            -
+                              padding: "16px clamp(12px,calc(25vw - 68px),17px)"
+                        extra_styles: |-
+                          .pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }
+                          .pm-metric-grid .pm-metric-icon { grid-row:2 !important; }
+                          .pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }
+                    -
+                      type: "conditional"
+                      conditions:
+                        -
+                          condition: "state"
+                          entity: "__PM_inverter_battery_soc__"
+                          state_not:
+                            - "unknown"
+                            - "unavailable"
+                      card:
+                        type: "custom:button-card"
+                        template: "metric"
+                        entity: "__PM_inverter_battery_soc__"
+                        name: "SOC по инвертору"
+                        icon: "mdi:flash"
+                        variables:
+                          accent: "#26c6da"
+                          max_value: 6000
+                        styles:
+                          card:
+                            -
+                              height: "auto"
+                            -
+                              "min-height": "126px"
+                            -
+                              padding: "16px clamp(12px,calc(25vw - 68px),17px)"
+                        extra_styles: |-
+                          .pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }
+                          .pm-metric-grid .pm-metric-icon { grid-row:2 !important; }
+                          .pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }
+                    -
+                      type: "conditional"
+                      conditions:
+                        -
+                          condition: "state"
+                          entity: "__PM_pv_charge_power__"
+                          state_not:
+                            - "unknown"
+                            - "unavailable"
+                      card:
+                        type: "custom:button-card"
+                        template: "metric"
+                        entity: "__PM_pv_charge_power__"
+                        name: "Мощность заряда от PV"
+                        icon: "mdi:flash"
+                        variables:
+                          accent: "#26c6da"
+                          max_value: 6000
+                        styles:
+                          card:
+                            -
+                              height: "auto"
+                            -
+                              "min-height": "126px"
+                            -
+                              padding: "16px clamp(12px,calc(25vw - 68px),17px)"
+                        extra_styles: |-
+                          .pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }
+                          .pm-metric-grid .pm-metric-icon { grid-row:2 !important; }
+                          .pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }
+                    -
+                      type: "conditional"
+                      conditions:
+                        -
+                          condition: "state"
+                          entity: "__PM_pv_charge_current__"
+                          state_not:
+                            - "unknown"
+                            - "unavailable"
+                      card:
+                        type: "custom:button-card"
+                        template: "metric"
+                        entity: "__PM_pv_charge_current__"
+                        name: "Ток заряда от PV"
+                        icon: "mdi:flash"
+                        variables:
+                          accent: "#26c6da"
+                          max_value: 6000
+                        styles:
+                          card:
+                            -
+                              height: "auto"
+                            -
+                              "min-height": "126px"
+                            -
+                              padding: "16px clamp(12px,calc(25vw - 68px),17px)"
+                        extra_styles: |-
+                          .pm-metric-grid > div:first-child { grid-column:1 / -1 !important; }
+                          .pm-metric-grid .pm-metric-icon { grid-row:2 !important; }
+                          .pm-metric-grid > div:nth-child(2) > div:first-child { white-space:normal !important; overflow-wrap:anywhere; }
+                    -
+                      type: "conditional"
+                      conditions:
+                        -
+                          condition: "state"
+                          entity: "__PM_load_apparent_power__"
+                          state_not:
+                            - "unknown"
+                            - "unavailable"
+                      card:
+                        type: "custom:button-card"
+                        template: "metric"
+                        entity: "__PM_load_apparent_power__"
+                        name: "Полная мощность нагрузки"
                         icon: "mdi:flash"
                         variables:
                           accent: "#26c6da"

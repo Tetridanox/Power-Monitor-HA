@@ -19,6 +19,7 @@ def definitions():
     for key,name in (("battery_soc","Заряд батареи"),("load_percent","Загрузка инвертора"),("bms_soh","Состояние батареи"),("autonomy_today","Автономность сегодня")):add(key,name,"%",None)
     for key,name in (("pv_energy_today","Солнечная энергия сегодня"),("grid_import_today","Из сети сегодня"),("load_energy_today","Потребление сегодня"),("battery_charge_energy_today","Заряд батареи сегодня"),("battery_discharge_energy_today","Разряд батареи сегодня")):
         add(key,name,"kWh","energy")
+    add("load_apparent_power","Полная мощность нагрузки","VA","apparent_power")
     add("remaining_capacity","Оставшаяся ёмкость","Ah",None)
     add("remaining_energy","Оставшаяся энергия банка","kWh","energy_storage")
     add("cell_delta","Разница напряжений ячеек","V","voltage")
@@ -68,6 +69,19 @@ def definitions():
     add('warning_code','Код предупреждения',None,None)
     add('fault_value','Значение аварии',None,None)
     add('warning_value','Значение предупреждения',None,None)
+    for key,name,unit,kind in (
+        ('inverter_ac_voltage','Напряжение AC-модуля инвертора','V','voltage'),
+        ('inverter_ac_current','Ток AC-модуля инвертора','A','current'),
+        ('inverter_ac_frequency','Частота AC-модуля инвертора','Hz','frequency'),
+        ('inverter_ac_power','Мощность AC-модуля инвертора','W','power'),
+        ('inverter_battery_average_current','Средний ток АКБ по инвертору','A','current'),
+        ('inverter_battery_current','Ток АКБ по инвертору','A','current'),
+        ('inverter_battery_power','Мощность АКБ по инвертору','W','power'),
+        ('inverter_battery_voltage','Напряжение АКБ по инвертору','V','voltage'),
+        ('inverter_battery_soc','SOC по инвертору','%',None),
+        ('pv_charge_power','Мощность заряда от PV','W','power'),
+        ('pv_charge_current','Ток заряда от PV','A','current')):
+        add(key,name,unit,kind)
     add("operating_mode","Режим инвертора",None,None)
     add("inverter_mppt_count","Количество MPPT",None,None)
     for slot in (1,2):

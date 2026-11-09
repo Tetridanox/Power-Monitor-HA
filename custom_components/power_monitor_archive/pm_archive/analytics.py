@@ -134,6 +134,8 @@ class AnalyticsStore:
                 raise ArchiveError('unsupported analytics schema')
             if version==0 and self.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table'").fetchone():
                 raise ArchiveError('refusing to adopt an unrelated analytics database')
+            if version == 0:
+                self.connection.execute('PRAGMA auto_vacuum=INCREMENTAL')
             self.connection.execute('PRAGMA journal_mode=WAL')
             self.connection.execute('PRAGMA synchronous=FULL')
             self.connection.execute('PRAGMA cache_size=-512')

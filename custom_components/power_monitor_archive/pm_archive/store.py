@@ -164,6 +164,7 @@ class ArchiveStore:
                 if version == 0:
                     if self.connection.execute("SELECT 1 FROM sqlite_master WHERE type='table'").fetchone():
                         raise ArchiveError("refusing to adopt an unrelated database")
+                    self.connection.execute('PRAGMA auto_vacuum=INCREMENTAL')
                     self.connection.executescript("""
                         BEGIN IMMEDIATE;
                         CREATE TABLE variants (

@@ -9,6 +9,14 @@ def dependencies():
     return json.loads(Path(__file__).with_name('frontend-dependencies.json').read_text(encoding='utf-8'))
 
 
+def add_bundled_origami(themes, bundled):
+    """Supply the bundled theme only when YAML did not define its own."""
+    if 'Origami' in themes:
+        return False
+    themes['Origami'] = bundled
+    return True
+
+
 def install_resource(directory, spec):
     directory = Path(directory)
     if Path(spec['file']).name != spec['file']:

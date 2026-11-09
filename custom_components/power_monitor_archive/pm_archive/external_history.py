@@ -17,6 +17,7 @@ import threading
 import time
 
 from .store import ArchiveError, _record, resolve_minute_extensions
+from .storage import deleted_anchor
 
 TABLES = {
     'variants': ('device', 'generation', 'kind', 'record_id', 'fingerprint',
@@ -91,7 +92,8 @@ def read_delta(paths, checkpoints, limit=512):
                 raise ArchiveError('unsupported historical database')
             if cursor:
                 previous = db.execute(f'SELECT rowid,* FROM {table} WHERE rowid=?', (cursor,)).fetchone()
-                if previous is None or row_digest(wire_row(table, previous)) != anchor:
+                digest = row_digest(wire_row(table, previous)) if previous else deleted_anchor(db, cursor)
+                if digest != anchor:
                     raise ArchiveError('history database incarnation or checkpoint changed')
             page = db.execute(f'SELECT rowid,* FROM {table} WHERE rowid>? ORDER BY rowid LIMIT ?',
                               (cursor, limit + 1)).fetchall()

@@ -229,7 +229,7 @@ def verify_rows(db, table, rows):
             raise ArchiveError('committed archive content mismatch')
 
 
-def replicate(db, config, paths, logbook_path):
+def replicate(db, config, paths, logbook_path, *, separate_filesystem=False):
     from .cold_storage import meta, put_meta, insert_rows
     previous = meta(db, 'replication', {'sourceId': config['sourceId'], 'checkpoints': {}})
     before_jk = meta(db, 'jk_replication', {'sourceId': config['sourceId'], 'checkpoint': {'rowid': 0, 'anchor': None}})
@@ -239,19 +239,26 @@ def replicate(db, config, paths, logbook_path):
     pages = read_delta(paths, previous['checkpoints'], 512)
     page_jk = read_window_delta(logbook_path, before_jk['checkpoint']) if logbook_path.exists() else None
     state = {'schema': 1, 'sourceId': config['sourceId'], 'ready': not any(p['more'] for p in pages.values()),
-             'checkpoints': {t: p['after'] for t, p in pages.items()}, 'updatedUtc': utc(), 'backend': 'folder'}
+             'checkpoints': {t: p['after'] for t, p in pages.items()}, 'updatedUtc': utc(), 'backend': 'folder',
+             'separateFilesystem': separate_filesystem, 'localFloors': meta(db, 'local_clear_floors', {})}
     if page_jk:
         state['logbook'] = {'schema': 1, 'sourceId': config['sourceId'], 'ready': not page_jk['more'],
             'checkpoint': page_jk['after'], 'updatedUtc': state['updatedUtc']}
+    # A manual clear also excludes the local backlog already present at that
+    # moment. The local retention floor protects the rows we intentionally skip.
+    floors = state['localFloors']
+    batches = {table: [row for row in page['rows'] if row[0] > floors.get(table, 0)]
+               for table, page in pages.items()}
+    windows = [row for row in page_jk['rows'] if row[0] > floors.get('windows', 0)] if page_jk else []
     db.execute('BEGIN IMMEDIATE')
     try:
-        for table, page in pages.items(): insert_rows(db, table, page['rows'])
-        if page_jk: insert_window_rows(db, page_jk['rows'])
+        for table, rows in batches.items(): insert_rows(db, table, rows)
+        insert_window_rows(db, windows)
         db.execute('COMMIT')
     except BaseException:
         db.execute('ROLLBACK'); raise
-    for table, page in pages.items(): verify_rows(db, table, page['rows'])
-    if page_jk: verify_window_rows(db, page_jk['rows'])
+    for table, rows in batches.items(): verify_rows(db, table, rows)
+    verify_window_rows(db, windows)
     # Checkpoints follow committed byte readback, including after a crash/retry.
     db.execute('BEGIN IMMEDIATE')
     try:
@@ -294,10 +301,9 @@ def evict_oldest(db, count=512):
     return len(selected)
 
 
-def reclaim_pages(db):
-    for _ in range(64):
-        if not db.execute('PRAGMA freelist_count').fetchone()[0]: break
-        db.execute('PRAGMA incremental_vacuum(1)')
+def reclaim_pages(db, count=64):
+    if db.execute('PRAGMA freelist_count').fetchone()[0]:
+        db.execute(f'PRAGMA incremental_vacuum({count})').fetchall()
 
 
 class ManagedHistory:
@@ -311,13 +317,16 @@ class ManagedHistory:
         self.owner_lock = None
         self.closed = False
         self.due = 0
+        self.compacting = False
         self.ack = None
         self.state = {'configured': True, 'backend': self.backend, 'available': False, 'source': 'local', 'reason': 'starting'}
 
     def close(self):
-        self.closed = True
-        if self.owner_lock:
-            self.owner_lock.close(); self.owner_lock = None
+        with self.lock:
+            self.closed = True
+            self.ack = None
+            if self.owner_lock:
+                self.owner_lock.close(); self.owner_lock = None
 
     def guard(self):
         if self.closed or not self.root.is_dir() or self.root.is_symlink():
@@ -342,11 +351,11 @@ class ManagedHistory:
             if self.guard() != identity: raise ArchiveError('archive volume changed during read')
         finally: self.lock.release()
 
-    def _open(self):
+    def _open(self, seconds=2):
         # mode=rw is essential: loss of the mount never creates an empty DB.
         db = sqlite3.connect(self.path.absolute().as_uri() + '?mode=rw', uri=True, isolation_level=None, timeout=.5)
         db.execute('PRAGMA synchronous=FULL'); db.execute('PRAGMA cache_size=-2048')
-        deadline = time.monotonic() + 2
+        deadline = time.monotonic() + seconds
         db.set_progress_handler(lambda: time.monotonic() > deadline, 10000)
         return db
 
@@ -359,7 +368,8 @@ class ManagedHistory:
             with closing(self._open()) as db:
                 usage = shutil.disk_usage(self.root)
                 reserve = max(16 * 1024**2, min(GIB, usage.total // 100))
-                if self.root.stat().st_dev == app.data.stat().st_dev:
+                separate = identity[0] != app.data.stat().st_dev
+                if not separate:
                     reserve = max(reserve, local_space(app.data)['reserveBytes'])
                 page_size = db.execute('PRAGMA page_size').fetchone()[0]
                 allocated = db.execute('PRAGMA page_count').fetchone()[0] * page_size
@@ -369,7 +379,10 @@ class ManagedHistory:
                 # also to the transaction that imports the next source batch.
                 pressure = live >= self.config['limitBytes'] * .95 or usage.free < reserve
                 deleted = evict_oldest(db) if pressure else 0
-                if not deleted and free_pages: reclaim_pages(db)
+                if not deleted and free_pages: reclaim_pages(db, 256 if self.compacting else 64)
+                if self.compacting:
+                    self.compacting = bool(db.execute('PRAGMA freelist_count').fetchone()[0])
+                    if self.compacting: self.due = time.monotonic() + .2
                 allocated = db.execute('PRAGMA page_count').fetchone()[0] * page_size
                 live = allocated - db.execute('PRAGMA freelist_count').fetchone()[0] * page_size
                 usage = shutil.disk_usage(self.root)
@@ -382,12 +395,13 @@ class ManagedHistory:
                 # Lowering a quota below an old file's allocation is handled
                 # by incremental cleanup; max_page_count cannot shrink it.
                 db.execute(f'PRAGMA max_page_count={max(allocated // page_size, self.config["limitBytes"] // page_size)}')
-                state = replicate(db, self.config, {'variants': app.database, 'battery': app.analytics_database}, app.logbook_database)
+                state = replicate(db, self.config, {'variants': app.database, 'battery': app.analytics_database},
+                                  app.logbook_database, separate_filesystem=separate)
             if self.guard() != identity: raise ArchiveError('archive changed before acknowledgement')
             self.ack = state
             self.state = {'configured': True, 'backend': self.backend, 'available': True, 'source': self.backend,
                 'updatedUtc': state['updatedUtc'], 'reason': 'ready' if state['ready'] else 'syncing',
-                'deletedRows': self.state.get('deletedRows', 0) + deleted}
+                'deletedRows': self.state.get('deletedRows', 0) + deleted, 'localDays': 0 if separate else 30}
             if not state['ready'] or (state.get('logbook') and not state['logbook']['ready']): self.due = time.monotonic() + .2
             return state
         except (OSError, ValueError, KeyError, TypeError, sqlite3.Error) as error:
@@ -399,10 +413,54 @@ class ManagedHistory:
             return None
         finally:
             try:
-                save_json(app.data / 'managed-storage-status.json', {**self.state, 'utc': utc(),
-                    'limitBytes': self.config['limitBytes'], 'localDays': 30})
+                save_json(app.data / 'managed-storage-status.json', {'localDays': 30, **self.state, 'utc': utc(),
+                    'limitBytes': self.config['limitBytes']})
             except OSError: pass
             self.lock.release()
+
+    def clear(self, app, categories, expected_archive):
+        from .cold_storage import meta, put_meta
+        from .storage import CLEAR_TABLES, reader
+
+        with self.reading():
+            identity = self.guard()
+            if self.owner_lock is None:
+                self.owner_lock = _lock_file(self.root / '.power-monitor-writer.lock')
+            paths = {'variants': app.database, 'battery': app.analytics_database, 'windows': app.logbook_database}
+            with closing(self._open(15)) as db:
+                revision = meta(db, 'retention_revision', 0)
+                if expected_archive != f"{self.config['volumeId']}:{revision}":
+                    raise ArchiveError('external archive changed; refresh before clearing')
+                floors = meta(db, 'local_clear_floors', {})
+                removed = {}
+                for category in categories:
+                    if category in CLEAR_TABLES:
+                        table = CLEAR_TABLES[category]
+                        if paths[table].exists():
+                            with reader(paths[table]) as source:
+                                last = source.execute(f'SELECT MAX(rowid) FROM {table}').fetchone()[0] or 0
+                            floors[table] = max(last, floors.get(table, 0))
+                db.execute('BEGIN IMMEDIATE')
+                try:
+                    for category in categories:
+                        if category in CLEAR_TABLES:
+                            removed[category] = db.execute(f'DELETE FROM {CLEAR_TABLES[category]}').rowcount
+                    if removed:
+                        put_meta(db, 'local_clear_floors', floors)
+                        put_meta(db, 'retention_revision', revision + 1)
+                    if self.guard() != identity:
+                        raise ArchiveError('archive changed before clearing')
+                    db.execute('COMMIT')
+                except BaseException:
+                    if db.in_transaction:
+                        db.execute('ROLLBACK')
+                    raise
+                self.ack = None
+                self.compacting = True
+                self.due = 0
+            if 'metadata' in categories:
+                removed['metadata'] = 0  # Only unused SQLite pages can be reclaimed here.
+            return removed
 
     def storage_request(self, paired, action, args):
         from .cold_storage import execute_query, meta
@@ -413,8 +471,8 @@ class ManagedHistory:
                 'schema': 1, 'sourceId': self.config['sourceId'], 'action': action, 'device': paired['deviceId'],
                 'generation': paired['generation'], 'args': args, 'costSettings': None, 'tail': {t: [] for t in TABLES}})['result']
             if action == 'storage_info':
-                value.update(policy={**self.state, 'path': str(self.root), 'limitBytes': self.config['limitBytes'],
-                                     'oldestFirst': True, 'localDays': 30})
+                value.update(policy={'localDays': 30, **self.state, 'path': str(self.root),
+                                     'limitBytes': self.config['limitBytes'], 'oldestFirst': True})
             value['archiveId'] = archive_id
             return value
 
@@ -485,7 +543,7 @@ def prepare_folder(value, data, previous=None):
                     db.execute('BEGIN IMMEDIATE')
                     try:
                         put_meta(db, 'replication', {'sourceId': source_id, 'checkpoints': {}})
-                        db.execute("DELETE FROM bridge_meta WHERE name='jk_replication'")
+                        db.execute("DELETE FROM bridge_meta WHERE name IN ('jk_replication', 'local_clear_floors')")
                         db.execute('COMMIT')
                     except BaseException:
                         db.execute('ROLLBACK'); raise
@@ -522,7 +580,8 @@ class StorageWorker:
                 if isinstance(reader, ManagedHistory) and time.monotonic() >= app.ota_quiet_until:
                     reader.step(app)
                 app.storage_ready.clear()
-                with app.lock: pending = app.storage_command is not None
+                with app.lock:
+                    pending = app.storage_command is not None and app.storage_command.get('scope') != 'local'
                 if not pending: app.storage_ready.wait(.2)
         except Exception as error:
             app.storage_worker_error = type(error).__name__

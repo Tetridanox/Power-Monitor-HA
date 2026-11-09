@@ -1,0 +1,27 @@
+@font-face {
+  font-family: "Power Monitor Montserrat";
+  src: url("./fonts/montserrat.ttf?v=1.0.255") format("truetype");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+/* Native Origami cards also use the bundled face for Cyrillic and Latin. */
+@font-face {
+  font-family: Montserrat;
+  src: url("./fonts/montserrat.ttf?v=1.0.255") format("truetype");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+power-monitor-panel,
+power-monitor-card,
+power-monitor-history-card,
+power-monitor-interface-card,
+power-monitor-device-card,
+power-monitor-forecast-card,
+power-monitor-insights-card,
+power-monitor-telegram-commands {
+  font-family: "Power Monitor Montserrat", var(--ha-font-family-body, system-ui), sans-serif;
+}
